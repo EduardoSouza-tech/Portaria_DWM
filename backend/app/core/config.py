@@ -38,7 +38,14 @@ class Settings(BaseSettings):
     MAX_FILE_SIZE: int = 10485760  # 10MB
     
     # CORS
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:5173", "http://localhost:3000"]
+    ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
+    
+    @property
+    def get_allowed_origins(self) -> List[str]:
+        """Convert ALLOWED_ORIGINS string to list"""
+        if self.ALLOWED_ORIGINS == "*":
+            return ["*"]
+        return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",")]
     
     model_config = SettingsConfigDict(
         env_file=".env",
