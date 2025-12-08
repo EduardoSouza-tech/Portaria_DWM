@@ -2,16 +2,17 @@
 Portaria Inteligente - Backend API
 FastAPI Application
 """
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
+from sqlalchemy.orm import Session
 import time
 import logging
 from datetime import datetime
 
 from app.core.config import settings
-from app.core.database import engine, Base
+from app.core.database import engine, Base, get_db
 from app.api.v1 import api_router
 
 # Configure logging
@@ -100,6 +101,39 @@ async def health_check():
         "timestamp": datetime.utcnow().isoformat(),
         "database": "connected",
         "version": settings.APP_VERSION
+    }
+
+
+# Setup database endpoint (one-time use)
+@app.post("/setup-database")
+async def setup_database(db: Session = Depends(get_db)):
+    """Initialize database with admin user"""
+    from app.models.user import User
+    from app.core.security import get_password_hash
+    
+    # Check if admin exists
+    existing_admin = db.query(User).filter(User.email == "admin@portaria.com").first()
+    if existing_admin:
+        return {"message": "Database already initialized", "admin_exists": True}
+    
+    # Create admin user
+    admin_user = User(
+        email="admin@portaria.com",
+        hashed_password=get_password_hash("admin123"),
+        nome="Administrador",
+        is_active=True,
+        role="admin"
+    )
+    
+    db.add(admin_user)
+    db.commit()
+    db.refresh(admin_user)
+    
+    return {
+        "message": "✅ Database initialized successfully!",
+        "admin_created": True,
+        "email": "admin@portaria.com",
+        "password": "admin123"
     }
 
 
