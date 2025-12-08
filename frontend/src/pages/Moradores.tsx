@@ -10,6 +10,7 @@ export default function Moradores() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     nome_completo: '',
     cpf: '',
@@ -43,6 +44,19 @@ export default function Moradores() {
     }
   });
 
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => moradoresAPI.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['moradores'] });
+      setShowModal(false);
+      resetForm();
+      alert('✅ Morador atualizado com sucesso!');
+    },
+    onError: (error: any) => {
+      alert(`❌ Erro: ${error.response?.data?.detail || 'Erro ao atualizar'}`);
+    }
+  });
+
   const deleteMutation = useMutation({
     mutationFn: moradoresAPI.delete,
     onSuccess: () => {
@@ -52,6 +66,7 @@ export default function Moradores() {
   });
 
   const resetForm = () => {
+    setEditingId(null);
     setFormData({
       nome_completo: '',
       cpf: '',
@@ -74,7 +89,24 @@ export default function Moradores() {
       email: formData.email || null,
     };
     
-    createMutation.mutate(dataToSend);
+    if (editingId) {
+      updateMutation.mutate({ id: editingId, data: dataToSend });
+    } else {
+      createMutation.mutate(dataToSend);
+    }
+  };
+
+  const handleEdit = (morador: any) => {
+    setEditingId(morador.id);
+    setFormData({
+      nome_completo: morador.nome_completo,
+      cpf: morador.cpf,
+      rg: morador.rg || '',
+      telefone: morador.telefone || '',
+      email: morador.email || '',
+      data_nascimento: morador.data_nascimento || ''
+    });
+    setShowModal(true);
   };
 
   const handleDelete = (id: string, nome: string) => {
@@ -140,13 +172,22 @@ export default function Moradores() {
                         </span>
                       </td>
                       <td>
-                        <button
-                          onClick={() => handleDelete(morador.id, morador.nome_completo)}
-                          className="btn-danger-small"
-                          disabled={!morador.is_active}
-                        >
-                          🗑️ Desativar
-                        </button>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button
+                            onClick={() => handleEdit(morador)}
+                            className="btn-edit-small"
+                            disabled={!morador.is_active}
+                          >
+                            ✏️ Editar
+                          </button>
+                          <button
+                            onClick={() => handleDelete(morador.id, morador.nome_completo)}
+                            className="btn-danger-small"
+                            disabled={!morador.is_active}
+                          >
+                            🗑️ Desativar
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -157,23 +198,24 @@ export default function Moradores() {
         </div>
       )}
 
-      {/* Modal de Cadastro */}
+      {/* Modal de Cadastro/Edição */}
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+        <div className="modal-overlay" onClick={() => { setShowModal(false); resetForm(); }}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>➕ Novo Morador</h2>
-              <button onClick={() => setShowModal(false)} className="btn-close">✕</button>
+              <h2>{editingId ? '✏️ Editar Morador' : '➕ Novo Morador'}</h2>
+              <button onClick={() => { setShowModal(false); resetForm(); }} className="btn-close">✕</button>
             </div>
             
             <form onSubmit={handleSubmit}>
               <div className="form-grid">
                 <div className="form-group">
-                  <label>Nome Completo *</label>
+                  <label>NOME COMPLETO *</label>
                   <input
                     type="text"
                     value={formData.nome_completo}
                     onChange={(e) => setFormData({...formData, nome_completo: e.target.value})}
+                    placeholder="Nome completo do morador"
                     required
                   />
                 </div>
@@ -185,7 +227,7 @@ export default function Moradores() {
                     value={formData.cpf}
                     onChange={(e) => setFormData({...formData, cpf: e.target.value.replace(/\D/g, '')})}
                     maxLength={11}
-                    placeholder="Apenas números"
+                    placeholder="12345678901"
                     required
                   />
                 </div>
@@ -196,6 +238,7 @@ export default function Moradores() {
                     type="text"
                     value={formData.rg}
                     onChange={(e) => setFormData({...formData, rg: e.target.value})}
+                    placeholder="RG-123456789"
                   />
                 </div>
 
