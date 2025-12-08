@@ -64,7 +64,17 @@ export default function Moradores() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createMutation.mutate(formData);
+    
+    // Limpar dados vazios antes de enviar
+    const dataToSend = {
+      ...formData,
+      data_nascimento: formData.data_nascimento || null,
+      rg: formData.rg || null,
+      telefone: formData.telefone || null,
+      email: formData.email || null,
+    };
+    
+    createMutation.mutate(dataToSend);
   };
 
   const handleDelete = (id: string, nome: string) => {
