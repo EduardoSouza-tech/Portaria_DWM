@@ -87,6 +87,15 @@ async def create_visita(visita_data: VisitaCreate, db: Session = Depends(get_db)
             detail=f"Visitante bloqueado: {visitante.blacklist_reason}"
         )
     
+    # Validate unit exists
+    from app.models.unidade import Unidade
+    unidade = db.query(Unidade).filter(Unidade.id == visita_data.unidade_id).first()
+    if not unidade:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Unidade não encontrada"
+        )
+    
     # Calculate expiry
     valido_ate = datetime.utcnow() + timedelta(hours=visita_data.validade_horas)
     
