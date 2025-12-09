@@ -232,21 +232,19 @@ export default function Correspondencias() {
 
   return (
     <div className="page-container">
-      <button onClick={() => navigate('/dashboard')} className="btn-back">
-        ⬅️ Voltar
-      </button>
+      <div className="page-header">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <button onClick={() => navigate('/dashboard')} className="btn-back">
+            ⬅️ Voltar
+          </button>
+          <h1>📬 Correspondências</h1>
+        </div>
+        <button onClick={() => setShowModal(true)} className="btn-primary">
+          ➕ Registrar Recebimento
+        </button>
+      </div>
 
       <div className="content-card">
-        <div className="page-header">
-          <div>
-            <h1>📬 Correspondências</h1>
-            <p>Gerenciamento de encomendas e correspondências</p>
-          </div>
-          <button onClick={() => setShowModal(true)} className="btn-primary">
-            ➕ Registrar Recebimento
-          </button>
-        </div>
-
         <div className="filters" style={{ marginBottom: '20px' }}>
           <select
             value={statusFilter}
