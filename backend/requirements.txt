@@ -27,6 +27,9 @@ python-magic==0.4.27
 python-socketio==5.10.0
 aioredis==2.0.1
 
+# Test Data Generation
+Faker==22.0.0
+
 # Utilities
 python-dotenv==1.0.0
 httpx==0.25.2

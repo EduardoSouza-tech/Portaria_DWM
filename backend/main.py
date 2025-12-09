@@ -93,6 +93,72 @@ async def root():
     }
 
 
+# Generate test data endpoint
+@app.post("/generate-test-data")
+async def generate_test_data():
+    """Gera dados de teste: 200 moradores, 300 visitantes, 700 correspondências, 100 visitas"""
+    try:
+        import subprocess
+        import sys
+        import os
+        
+        # Pega o diretório do script
+        script_path = os.path.join(os.path.dirname(__file__), "generate_test_data.py")
+        
+        logger.info("🎲 Iniciando geração de dados de teste...")
+        
+        result = subprocess.run(
+            [sys.executable, script_path],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            cwd=os.path.dirname(__file__)
+        )
+        
+        if result.returncode == 0:
+            logger.info("✅ Dados gerados com sucesso")
+            return {
+                "success": True,
+                "message": "Dados de teste gerados com sucesso!",
+                "output": result.stdout,
+                "details": {
+                    "moradores": 200,
+                    "visitantes": 300,
+                    "correspondencias": 700,
+                    "visitas": 100
+                }
+            }
+        else:
+            logger.error(f"❌ Erro ao gerar dados: {result.stderr}")
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "success": False,
+                    "message": "Erro ao gerar dados",
+                    "error": result.stderr,
+                    "output": result.stdout
+                }
+            )
+    except subprocess.TimeoutExpired:
+        logger.error("⏱️ Timeout ao gerar dados")
+        return JSONResponse(
+            status_code=408,
+            content={
+                "success": False,
+                "message": "Tempo limite excedido ao gerar dados"
+            }
+        )
+    except Exception as e:
+        logger.error(f"💥 Exceção ao gerar dados: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "message": f"Erro inesperado: {str(e)}"
+            }
+        )
+
+
 # Health check
 @app.get("/health")
 async def health_check():

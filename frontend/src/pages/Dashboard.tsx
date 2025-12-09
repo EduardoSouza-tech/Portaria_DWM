@@ -86,17 +86,20 @@ export default function Dashboard() {
     },
   });
 
-  // Calcular estatísticas
-  const visitantesHoje = visitantes.filter((v: any) => {
-    try {
-      if (!v.created_at) return false;
-      const hoje = new Date().toISOString().split('T')[0];
-      const dataVisitante = new Date(v.created_at).toISOString().split('T')[0];
-      return dataVisitante === hoje;
-    } catch {
-      return false;
-    }
-  }).length;
+  // Query para visitantes programados hoje
+  const hoje = new Date();
+  const ano = hoje.getFullYear();
+  const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+  const dia = String(hoje.getDate()).padStart(2, '0');
+  const dataHoje = `${ano}-${mes}-${dia}`;
+  
+  const { data: visitantesHoje = [] } = useQuery({
+    queryKey: ['visitantes-hoje', dataHoje],
+    queryFn: async () => {
+      const response = await fetch(`http://localhost:8000/api/v1/visitantes/programacao/data?data=${dataHoje}`);
+      return response.json();
+    },
+  });
 
   const visitasDentro = visitas.filter((v: any) => v.status === 'DENTRO').length;
   
@@ -195,7 +198,7 @@ export default function Dashboard() {
 
           <div className="card card-green">
             <h3>👤 Visitantes Hoje</h3>
-            <p className="card-number">{visitantesHoje}</p>
+            <p className="card-number">{visitantesHoje.length}</p>
             <Link to="/visitantes" className="card-link">Ver todos →</Link>
           </div>
 

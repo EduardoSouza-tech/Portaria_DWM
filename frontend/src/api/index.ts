@@ -98,6 +98,11 @@ export const visitantesAPI = {
     const response = await api.get(`/visitantes/documento/${documento}`);
     return response.data;
   },
+
+  listByDate: async (data: string) => {
+    const response = await api.get(`/visitantes/programacao/data?data=${data}`);
+    return response.data;
+  },
 };
 
 // Visitas

@@ -115,6 +115,51 @@ export default function Moradores() {
     }
   };
 
+  const handleGenerateTestData = async () => {
+    if (!confirm('⚠️ Isso irá gerar 200 moradores, 300 visitantes, 700 correspondências e 100 visitas.\n\nDeseja continuar?')) {
+      return;
+    }
+
+    console.log('🎲 Iniciando geração de dados de teste...');
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minutos
+
+      const response = await fetch('http://localhost:8000/generate-test-data', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`Erro HTTP: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        alert('✅ Dados gerados com sucesso!\n\nAtualizando lista...');
+        queryClient.invalidateQueries({ queryKey: ['moradores'] });
+        window.location.reload(); // Recarrega página para garantir atualização
+      } else {
+        alert('❌ Erro ao gerar dados:\n' + (data.message || 'Erro desconhecido'));
+      }
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        alert('⏱️ Tempo esgotado. Tente novamente.');
+      } else {
+        console.error('Erro ao gerar dados:', error);
+        alert('❌ Erro ao comunicar com servidor.\n\nVerifique se o backend está rodando e tente novamente.');
+      }
+    }
+  };
+
   return (
     <div className="page-container">
       <div className="page-header">
@@ -124,9 +169,18 @@ export default function Moradores() {
           </button>
           <h1>👥 Moradores</h1>
         </div>
-        <button onClick={() => setShowModal(true)} className="btn-primary">
-          ➕ Novo Morador
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button 
+            onClick={handleGenerateTestData} 
+            className="btn-secondary"
+            style={{ background: 'linear-gradient(135deg, #f39c12 0%, #e67e22 100%)' }}
+          >
+            🎲 Gerar Dados de Teste
+          </button>
+          <button onClick={() => setShowModal(true)} className="btn-primary">
+            ➕ Novo Morador
+          </button>
+        </div>
       </div>
       
       {isLoading ? (
