@@ -130,6 +130,7 @@ async def health_check():
 async def generate_test_data():
     """Generate test data for development"""
     from app.core.database import SessionLocal
+    from app.models.condominio import Condominio
     from app.models.unidade import Unidade
     from app.models.morador import Morador
     from app.models.visitante import Visitante
@@ -138,6 +139,26 @@ async def generate_test_data():
     
     db = SessionLocal()
     try:
+        # Create or get test condominium
+        condominio = db.query(Condominio).first()
+        if not condominio:
+            condominio = Condominio(
+                id=uuid4(),
+                nome="Condomínio Teste",
+                cnpj="00000000000000",
+                endereco="Rua Teste, 123",
+                cidade="São Paulo",
+                estado="SP",
+                cep="00000000",
+                total_unidades=15,
+                total_blocos=3,
+                telefone="(11) 0000-0000",
+                email="contato@teste.com"
+            )
+            db.add(condominio)
+            db.commit()
+            db.refresh(condominio)
+        
         # Create test units
         units_created = 0
         for bloco in ['A', 'B', 'C']:
@@ -147,6 +168,7 @@ async def generate_test_data():
                 if not exists:
                     unidade = Unidade(
                         id=uuid4(),
+                        condominio_id=condominio.id,
                         numero=unidade_id,
                         bloco=bloco,
                         andar=int(str(numero)[0])
@@ -180,6 +202,7 @@ async def generate_test_data():
             "success": True,
             "message": "Dados de teste gerados com sucesso",
             "data": {
+                "condominium_created": condominio.nome,
                 "units_created": units_created,
                 "residents_created": residents_created
             }
