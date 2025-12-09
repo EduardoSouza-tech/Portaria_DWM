@@ -125,6 +125,79 @@ async def health_check():
     }
 
 
+# Test data generator endpoint
+@app.post("/generate-test-data")
+async def generate_test_data():
+    """Generate test data for development"""
+    from app.core.database import SessionLocal
+    from app.models.unidade import Unidade
+    from app.models.morador import Morador
+    from app.models.visitante import Visitante
+    from app.models.correspondencia import Correspondencia, TipoCorrespondencia, StatusCorrespondencia
+    from uuid import uuid4
+    
+    db = SessionLocal()
+    try:
+        # Create test units
+        units_created = 0
+        for bloco in ['A', 'B', 'C']:
+            for numero in range(101, 106):
+                unidade_id = f"{bloco}{numero}"
+                exists = db.query(Unidade).filter(Unidade.numero == unidade_id).first()
+                if not exists:
+                    unidade = Unidade(
+                        id=uuid4(),
+                        numero=unidade_id,
+                        bloco=bloco,
+                        andar=int(str(numero)[0])
+                    )
+                    db.add(unidade)
+                    units_created += 1
+        
+        db.commit()
+        
+        # Create test residents
+        unidades = db.query(Unidade).limit(5).all()
+        residents_created = 0
+        for i, unidade in enumerate(unidades):
+            exists = db.query(Morador).filter(Morador.unidade_id == unidade.id).first()
+            if not exists:
+                morador = Morador(
+                    id=uuid4(),
+                    nome=f"Morador Teste {i+1}",
+                    cpf=f"000.000.00{i:02d}-00",
+                    telefone=f"(11) 9999-{i:04d}",
+                    email=f"morador{i+1}@teste.com",
+                    unidade_id=unidade.id,
+                    tipo="PROPRIETARIO" if i % 2 == 0 else "INQUILINO"
+                )
+                db.add(morador)
+                residents_created += 1
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": "Dados de teste gerados com sucesso",
+            "data": {
+                "units_created": units_created,
+                "residents_created": residents_created
+            }
+        }
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Erro ao gerar dados de teste: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "error": str(e)
+            }
+        )
+    finally:
+        db.close()
+
+
 # Global exception handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
