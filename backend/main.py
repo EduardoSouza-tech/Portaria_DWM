@@ -2,17 +2,18 @@
 Portaria Inteligente - Backend API
 FastAPI Application
 """
-from fastapi import FastAPI, Request, Depends
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
-from sqlalchemy.orm import Session
 import time
 import logging
 from datetime import datetime
+from pathlib import Path
 
 from app.core.config import settings
-from app.core.database import engine, Base, get_db
+from app.core.database import engine, Base
 from app.api.v1 import api_router
 
 # Configure logging
@@ -58,9 +59,9 @@ app = FastAPI(
 # CORS Middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Permitir todas as origens em desenvolvimento
+    allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
     expose_headers=["*"],
 )
@@ -79,6 +80,26 @@ async def add_process_time_header(request: Request, call_next):
 # Include API routes
 app.include_router(api_router, prefix="/api/v1")
 
+# Servir arquivos estáticos do frontend (React build)
+static_path = Path(__file__).parent / "static"
+if static_path.exists():
+    app.mount("/assets", StaticFiles(directory=str(static_path / "assets")), name="assets")
+    
+    @app.get("/{full_path:path}")
+    async def serve_frontend(full_path: str):
+        """Serve o frontend React para todas as rotas não-API"""
+        # Se for uma rota da API, não servir o frontend
+        if full_path.startswith("api/") or full_path.startswith("docs") or full_path.startswith("redoc"):
+            return JSONResponse({"detail": "Not Found"}, status_code=404)
+        
+        # Tentar servir o arquivo solicitado
+        file_path = static_path / full_path
+        if file_path.is_file():
+            return FileResponse(file_path)
+        
+        # Caso contrário, servir o index.html (SPA routing)
+        return FileResponse(static_path / "index.html")
+
 
 # Root endpoint
 @app.get("/")
@@ -93,72 +114,6 @@ async def root():
     }
 
 
-# Generate test data endpoint
-@app.post("/generate-test-data")
-async def generate_test_data():
-    """Gera dados de teste: 200 moradores, 300 visitantes, 700 correspondências, 100 visitas"""
-    try:
-        import subprocess
-        import sys
-        import os
-        
-        # Pega o diretório do script
-        script_path = os.path.join(os.path.dirname(__file__), "generate_test_data.py")
-        
-        logger.info("🎲 Iniciando geração de dados de teste...")
-        
-        result = subprocess.run(
-            [sys.executable, script_path],
-            capture_output=True,
-            text=True,
-            timeout=120,
-            cwd=os.path.dirname(__file__)
-        )
-        
-        if result.returncode == 0:
-            logger.info("✅ Dados gerados com sucesso")
-            return {
-                "success": True,
-                "message": "Dados de teste gerados com sucesso!",
-                "output": result.stdout,
-                "details": {
-                    "moradores": 200,
-                    "visitantes": 300,
-                    "correspondencias": 700,
-                    "visitas": 100
-                }
-            }
-        else:
-            logger.error(f"❌ Erro ao gerar dados: {result.stderr}")
-            return JSONResponse(
-                status_code=500,
-                content={
-                    "success": False,
-                    "message": "Erro ao gerar dados",
-                    "error": result.stderr,
-                    "output": result.stdout
-                }
-            )
-    except subprocess.TimeoutExpired:
-        logger.error("⏱️ Timeout ao gerar dados")
-        return JSONResponse(
-            status_code=408,
-            content={
-                "success": False,
-                "message": "Tempo limite excedido ao gerar dados"
-            }
-        )
-    except Exception as e:
-        logger.error(f"💥 Exceção ao gerar dados: {str(e)}")
-        return JSONResponse(
-            status_code=500,
-            content={
-                "success": False,
-                "message": f"Erro inesperado: {str(e)}"
-            }
-        )
-
-
 # Health check
 @app.get("/health")
 async def health_check():
@@ -167,39 +122,6 @@ async def health_check():
         "timestamp": datetime.utcnow().isoformat(),
         "database": "connected",
         "version": settings.APP_VERSION
-    }
-
-
-# Setup database endpoint (one-time use)
-@app.post("/setup-database")
-async def setup_database(db: Session = Depends(get_db)):
-    """Initialize database with admin user"""
-    from app.models.user import User
-    from app.core.security import get_password_hash
-    
-    # Check if admin exists
-    existing_admin = db.query(User).filter(User.email == "admin@portaria.com").first()
-    if existing_admin:
-        return {"message": "Database already initialized", "admin_exists": True}
-    
-    # Create admin user
-    admin_user = User(
-        email="admin@portaria.com",
-        hashed_password=get_password_hash("admin123"),
-        nome="Administrador",
-        is_active=True,
-        role="admin"
-    )
-    
-    db.add(admin_user)
-    db.commit()
-    db.refresh(admin_user)
-    
-    return {
-        "message": "✅ Database initialized successfully!",
-        "admin_created": True,
-        "email": "admin@portaria.com",
-        "password": "admin123"
     }
 
 

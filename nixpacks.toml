@@ -1,0 +1,6 @@
+[start]
+cmd = "bash start.sh"
+
+[build]
+# Instala dependências do Python e Node
+builderCommand = "pip install -r backend/requirements.txt && cd frontend && npm install"
