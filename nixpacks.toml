@@ -1,11 +1,11 @@
 [phases.setup]
-nixPkgs = ["python312Full", "python312Packages.virtualenv", "nodejs_20"]
+nixPkgs = ["python312", "nodejs_20"]
 
 [phases.install]
 cmds = [
-    "python3 -m venv /opt/venv",
-    ". /opt/venv/bin/activate && pip install --upgrade pip setuptools wheel",
-    ". /opt/venv/bin/activate && pip install -r backend/requirements.txt",
+    "python3 -m ensurepip --upgrade",
+    "python3 -m pip install --upgrade pip setuptools wheel",
+    "python3 -m pip install -r backend/requirements.txt",
     "cd frontend && npm ci"
 ]
 
@@ -17,4 +17,4 @@ cmds = [
 ]
 
 [start]
-cmd = ". /opt/venv/bin/activate && cd backend && python init_db.py && uvicorn main:app --host 0.0.0.0 --port $PORT"
+cmd = "cd backend && python3 init_db.py && python3 -m uvicorn main:app --host 0.0.0.0 --port $PORT"
