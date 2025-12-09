@@ -315,6 +315,7 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
+  align-items: stretch;
 }
 
 @media (max-width: 1024px) {
@@ -330,7 +331,7 @@
 }
 
 .action-btn-portaria {
-  padding: 16px 12px;
+  padding: 0 12px;
   border-radius: 10px;
   border: none;
   color: white;
@@ -348,6 +349,7 @@
   height: 56px;
   width: 100%;
   box-sizing: border-box;
+  line-height: 1;
 }
 
 .action-btn-portaria.btn-primary {
