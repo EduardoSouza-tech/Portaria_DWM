@@ -84,7 +84,7 @@ export default function Correspondencias() {
     document.body.className = `theme-${savedTheme}`;
   }, []);
 
-  const { data: correspondencias = [], refetch } = useQuery({
+  const { data: correspondencias = [] } = useQuery({
     queryKey: ['correspondencias', statusFilter],
     queryFn: () => correspondenciasAPI.list(statusFilter),
   });
