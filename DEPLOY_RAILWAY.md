@@ -1,148 +1,162 @@
-# Deploy no Railway - Sistema de Portaria DWM
+# 🚀 Deploy no Railway - Portaria Inteligente
 
-Este guia explica como fazer o deploy do Sistema de Portaria Inteligente no Railway.
+Sistema completo rodando na nuvem com PostgreSQL gerenciado.
 
-## 📋 Pré-requisitos
+---
 
-1. Conta no [Railway](https://railway.app/)
-2. Repositório Git conectado
-3. Código enviado para o GitHub
+## ✅ Backend (Já Configurado)
 
-## 🚀 Passos para Deploy
+### URL
+- **API:** https://portariadwm-production.up.railway.app
+- **Docs:** https://portariadwm-production.up.railway.app/docs
 
-### 1. Criar Novo Projeto no Railway
-
-1. Acesse [railway.app](https://railway.app/)
-2. Faça login com sua conta GitHub
-3. Clique em "New Project"
-4. Selecione "Deploy from GitHub repo"
-5. Escolha o repositório: `EduardoSouza-tech/Portaria_DWM`
-
-### 2. Configurar Variáveis de Ambiente
-
-No painel do Railway, vá em **Variables** e adicione:
-
-```env
-# Aplicação
-DEBUG=False
-ENVIRONMENT=production
-PORT=8000
-
-# Segurança (IMPORTANTE: Gere novas chaves para produção!)
-SECRET_KEY=sua-chave-secreta-muito-segura-min-64-caracteres-aqui
-QR_SECRET_KEY=outra-chave-para-qr-codes-min-64-caracteres-segura
-
-# CORS - Adicione seu domínio do Railway
-ALLOWED_ORIGINS=https://seu-app.railway.app,http://localhost:5173
-
-# Database (Railway fornece automaticamente se adicionar PostgreSQL)
-DATABASE_URL=sqlite:///./portaria.db
-
-# Redis (opcional - adicione serviço Redis no Railway)
-REDIS_URL=redis://localhost:6379/0
+### Variáveis de Ambiente Configuradas
+```bash
+ALLOWED_ORIGINS="*"
+APP_NAME="Portaria Inteligente"
+APP_VERSION="1.0.0"
+DATABASE_URL="${{Postgres.DATABASE_URL}}"
+DEBUG="False"
+SECRET_KEY="portaria-secret-key-super-seguro-2024"
 ```
 
-### 3. Deploy Automático
+### PostgreSQL (Conectado)
+- Database: `railway`
+- User: `postgres`
+- Porta: `5432`
+- Gerenciado automaticamente pelo Railway
 
-O Railway detectará automaticamente:
-- `Procfile` - Define como executar a aplicação
-- `railway.json` - Configurações de build e deploy
-- `nixpacks.toml` - Configuração de ambiente Python
-- `backend/requirements.txt` - Dependências Python
+---
 
-O deploy iniciará automaticamente após o push para o repositório.
+## ⏳ Frontend (A Configurar)
 
-### 4. Adicionar PostgreSQL (Recomendado para Produção)
+### 1. Criar Novo Serviço no Railway
 
-1. No projeto Railway, clique em "New Service"
-2. Selecione "Database" > "PostgreSQL"
-3. O Railway criará automaticamente a variável `DATABASE_URL`
-4. Atualize o código para usar PostgreSQL em produção
+1. No dashboard do Railway, clique em **"New"** → **"GitHub Repo"**
+2. Selecione: `EduardoSouza-tech/Portaria_DWM`
+3. Railway detectará 2 Dockerfiles (backend e frontend)
 
-### 5. Verificar Deploy
+### 2. Configurar Serviço Frontend
 
-Após o deploy:
-1. Clique no serviço no Railway
-2. Vá em "Settings" > "Networking"
-3. Clique em "Generate Domain"
-4. Acesse: `https://seu-app.railway.app/`
-5. Teste a API: `https://seu-app.railway.app/docs`
+- **Service Name:** `portaria-frontend`
+- **Root Directory:** `frontend`
+- **Dockerfile Path:** `frontend/Dockerfile`
+- **Port:** `80` (nginx)
 
-## 📊 Monitoramento
-
-- **Logs**: Aba "Deployments" no Railway
-- **Métricas**: Aba "Metrics" para CPU, memória e rede
-- **Health Check**: `https://seu-app.railway.app/health`
-
-## 🔒 Segurança - IMPORTANTE
-
-### Antes de ir para produção:
-
-1. **Gere novas SECRET_KEY**:
-```python
-import secrets
-print(secrets.token_urlsafe(64))
-```
-
-2. **Atualize CORS** com seu domínio real
-3. **Configure HTTPS** (Railway já fornece)
-4. **Use PostgreSQL** ao invés de SQLite
-5. **Configure Redis** para sessões (opcional)
-
-## 🔄 Atualizações
-
-Para atualizar o sistema em produção:
+### 3. Variáveis de Ambiente do Frontend
 
 ```bash
-git add .
-git commit -m "Sua mensagem de commit"
-git push origin master
+VITE_API_URL=https://portariadwm-production.up.railway.app/api/v1
 ```
 
-O Railway fará o deploy automaticamente!
+### 4. Gerar Domínio Público
 
-## 📝 Comandos Úteis
+1. Vá em **Settings** → **Networking**
+2. Clique em **"Generate Domain"**
+3. Railway gerará: `portaria-frontend-production.up.railway.app`
 
-### Ver logs em tempo real:
-```bash
-railway logs
+---
+
+## 🎯 URLs Finais
+
+| Serviço | URL | Status |
+|---------|-----|--------|
+| **Backend API** | https://portariadwm-production.up.railway.app | ✅ Online |
+| **Documentação** | https://portariadwm-production.up.railway.app/docs | ✅ Online |
+| **Health Check** | https://portariadwm-production.up.railway.app/health | ✅ Online |
+| **Frontend** | https://[gerar-dominio].up.railway.app | ⏳ A configurar |
+
+---
+
+## 👤 Login Padrão
+
+- **Email:** `admin@portaria.com`
+- **Senha:** `admin123`
+
+---
+
+## 📊 Estrutura no Railway
+
+```
+Railway Project: Portaria Inteligente
+│
+├── 🔧 Backend (portariadwm-production)
+│   ├── FastAPI + Uvicorn
+│   ├── Dockerfile: backend/Dockerfile
+│   ├── Porta: 8080
+│   └── ✅ Online
+│
+├── 🗄️ PostgreSQL
+│   ├── Database: railway
+│   ├── User: postgres
+│   ├── Porta: 5432
+│   └── ✅ Conectado ao Backend
+│
+└── 🎨 Frontend (a criar)
+    ├── React + Vite + Nginx
+    ├── Dockerfile: frontend/Dockerfile
+    ├── Porta: 80
+    └── ⏳ Pendente
 ```
 
-### Executar comandos no servidor:
-```bash
-railway run python backend/init_db.py
-```
+---
 
-### Conectar ao banco:
-```bash
-railway connect
-```
+## 🔄 Deploy Automático
+
+Toda vez que você fizer `git push`:
+1. Railway detecta alterações
+2. Faz rebuild da imagem Docker
+3. Deploy automático em ~2 minutos
+4. Zero downtime
+
+---
 
 ## 🐛 Troubleshooting
 
-### Erro de Build
-- Verifique `backend/requirements.txt`
-- Confirme que Python 3.9+ está configurado
+### Backend: EOFError no init_db.py
+✅ **Resolvido** - Removido `input()` interativo
 
-### Erro de Porta
-- Railway define `$PORT` automaticamente
-- Código já está configurado para usar `os.getenv("PORT", 8000)`
+### Backend: Foreign Key Violation
+✅ **Resolvido** - Validação de `unidade_id` antes de criar visita
 
-### Erro 502/503
-- Verifique os logs no Railway
-- Confirme que o servidor está iniciando corretamente
+### Backend: Null Constraint em total_unidades
+✅ **Resolvido** - Adicionado `default=0`
 
-### CORS Error
-- Adicione o domínio do Railway em `ALLOWED_ORIGINS`
-- Exemplo: `https://portaria-dwm.railway.app`
+### Frontend: CORS Error
+✅ **Já configurado** - Backend aceita todas as origens (`ALLOWED_ORIGINS="*"`)
 
-## 📚 Recursos
+### Frontend: Não conecta ao Backend
+- Verifique se `VITE_API_URL` está configurada
+- Teste a API: https://portariadwm-production.up.railway.app/docs
 
-- [Documentação Railway](https://docs.railway.app/)
-- [Railway Templates](https://railway.app/templates)
-- [Suporte Railway](https://help.railway.app/)
+---
 
-## 🎯 Próximos Passos
+## 📝 Comandos Git
+
+```bash
+# Adicionar alterações
+git add .
+
+# Fazer commit
+git commit -m "feat: Nova funcionalidade"
+
+# Enviar para GitHub (deploy automático)
+git push
+
+# Ver status
+git status
+```
+
+---
+
+## 📚 Próximos Passos
+
+- [ ] Criar serviço frontend no Railway
+- [ ] Configurar `VITE_API_URL`
+- [ ] Gerar domínio público
+- [ ] Testar login no sistema
+- [ ] Cadastrar primeiro condomínio
+- [ ] Sistema 100% na nuvem! 🎉
 
 1. ✅ Deploy do Backend no Railway
 2. 🔜 Deploy do Frontend (Vercel/Netlify)
