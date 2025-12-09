@@ -22,13 +22,19 @@ pwd_context = CryptContext(
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify password against hash"""
+    """Verify a password against a hash"""
     try:
-        # Truncate password if too long for bcrypt (max 72 bytes)
-        password_bytes = plain_password.encode('utf-8')
-        if len(password_bytes) > 72:
-            plain_password = password_bytes[:72].decode('utf-8', errors='ignore')
-        return pwd_context.verify(plain_password, hashed_password)
+        # Truncate password if too long for bcrypt
+        plain_password = str(plain_password)
+        if len(plain_password) > 72:
+            plain_password = plain_password[:72]
+        
+        # Verify with bcrypt directly
+        import bcrypt
+        return bcrypt.checkpw(
+            plain_password.encode('utf-8'),
+            hashed_password.encode('utf-8')
+        )
     except Exception as e:
         print(f"Error verifying password: {e}")
         return False
@@ -37,16 +43,20 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def get_password_hash(password: str) -> str:
     """Generate password hash (bcrypt max 72 bytes)"""
     try:
-        # Truncate password if too long for bcrypt
-        password_bytes = password.encode('utf-8')
-        if len(password_bytes) > 72:
-            password = password_bytes[:72].decode('utf-8', errors='ignore')
-        return pwd_context.hash(password)
+        # Ensure password is a string
+        password = str(password)
+        # Truncate to 72 characters (not bytes, simpler)
+        if len(password) > 72:
+            password = password[:72]
+        
+        # Hash with bcrypt directly using the library
+        import bcrypt
+        salt = bcrypt.gensalt(rounds=12)
+        hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
+        return hashed.decode('utf-8')
     except Exception as e:
         print(f"Error hashing password: {e}")
-        # Fallback: use a simpler hash
-        import hashlib
-        return hashlib.sha256(password.encode()).hexdigest()
+        raise
 
 
 def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
