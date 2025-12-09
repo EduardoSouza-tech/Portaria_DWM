@@ -126,7 +126,8 @@ export default function Moradores() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minutos
 
-      const response = await fetch('http://localhost:8000/generate-test-data', {
+      const baseUrl = import.meta.env.VITE_API_URL?.replace('/api/v1', '') || 'http://localhost:8000';
+      const response = await fetch(`${baseUrl}/generate-test-data`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

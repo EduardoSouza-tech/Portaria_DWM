@@ -4,6 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import './Dashboard.css';
 import '../theme.css';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark-purple');
@@ -53,7 +55,7 @@ export default function Dashboard() {
   const { data: stats, isLoading } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: async () => {
-      const response = await fetch('http://localhost:8000/api/v1/dashboard/stats');
+      const response = await fetch(`${API_BASE_URL}/dashboard/stats`);
       if (!response.ok) {
         return {
           total_moradores: 0,

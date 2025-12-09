@@ -5,6 +5,8 @@ import './Moradores.css';
 import '../theme.css';
 import '../global-select.css';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+
 interface Correspondencia {
   id: string;
   unidade_id: string;
@@ -26,12 +28,12 @@ const correspondenciasAPI = {
   list: async (status?: string) => {
     const params = new URLSearchParams();
     if (status) params.append('status_filter', status);
-    const response = await fetch(`http://localhost:8000/api/v1/correspondencias?${params}`);
+    const response = await fetch(`${API_BASE_URL}/correspondencias?${params}`);
     if (!response.ok) throw new Error('Erro ao buscar correspondências');
     return response.json();
   },
   create: async (data: any) => {
-    const response = await fetch('http://localhost:8000/api/v1/correspondencias', {
+    const response = await fetch(`${API_BASE_URL}/correspondencias`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -40,7 +42,7 @@ const correspondenciasAPI = {
     return response.json();
   },
   entregar: async (id: string, data: any) => {
-    const response = await fetch(`http://localhost:8000/api/v1/correspondencias/${id}/entregar`, {
+    const response = await fetch(`${API_BASE_URL}/correspondencias/${id}/entregar`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -92,7 +94,7 @@ export default function Correspondencias() {
   const { data: moradores = [] } = useQuery({
     queryKey: ['moradores-correspondencias'],
     queryFn: async () => {
-      const response = await fetch('http://localhost:8000/api/v1/moradores');
+      const response = await fetch(`${API_BASE_URL}/moradores`);
       if (!response.ok) return [];
       return response.json();
     },
