@@ -133,8 +133,6 @@ async def generate_test_data():
     from app.models.condominio import Condominio
     from app.models.unidade import Unidade
     from app.models.morador import Morador
-    from app.models.visitante import Visitante
-    from app.models.correspondencia import Correspondencia, TipoCorrespondencia, StatusCorrespondencia
     from uuid import uuid4
     
     db = SessionLocal()
@@ -178,20 +176,20 @@ async def generate_test_data():
         
         db.commit()
         
-        # Create test residents
-        unidades = db.query(Unidade).limit(5).all()
+        # Create test residents (without unit association)
         residents_created = 0
-        for i, unidade in enumerate(unidades):
-            exists = db.query(Morador).filter(Morador.unidade_id == unidade.id).first()
+        for i in range(5):
+            cpf = f"000000000{i:02d}"
+            exists = db.query(Morador).filter(Morador.cpf == cpf).first()
             if not exists:
                 morador = Morador(
                     id=uuid4(),
-                    nome=f"Morador Teste {i+1}",
-                    cpf=f"000.000.00{i:02d}-00",
-                    telefone=f"(11) 9999-{i:04d}",
+                    nome_completo=f"Morador Teste {i+1}",
+                    cpf=cpf,
+                    rg=f"0000000{i}",
+                    telefone=f"11999990{i:03d}",
                     email=f"morador{i+1}@teste.com",
-                    unidade_id=unidade.id,
-                    tipo="PROPRIETARIO" if i % 2 == 0 else "INQUILINO"
+                    is_active=True
                 )
                 db.add(morador)
                 residents_created += 1
@@ -202,7 +200,7 @@ async def generate_test_data():
             "success": True,
             "message": "Dados de teste gerados com sucesso",
             "data": {
-                "condominium_created": condominio.nome,
+                "condominium": condominio.nome,
                 "units_created": units_created,
                 "residents_created": residents_created
             }
