@@ -1,0 +1,18 @@
+{
+  "name": "portaria-inteligente",
+  "version": "1.0.0",
+  "description": "Sistema de Gestão de Portaria",
+  "private": true,
+  "scripts": {
+    "install:backend": "pip install -r backend/requirements.txt",
+    "install:frontend": "cd frontend && npm install",
+    "build:frontend": "cd frontend && npm run build",
+    "build:copy": "mkdir -p backend/static && cp -r frontend/dist/* backend/static/",
+    "build": "npm run install:frontend && npm run build:frontend && npm run build:copy",
+    "start": "cd backend && python init_db.py && uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}

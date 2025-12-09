@@ -1,6 +1,18 @@
-[start]
-cmd = "bash start.sh"
+[phases.setup]
+nixPkgs = ["python312", "nodejs_20"]
 
-[build]
-# Instala dependências do Python e Node
-builderCommand = "pip install -r backend/requirements.txt && cd frontend && npm install"
+[phases.install]
+cmds = [
+    "pip install -r backend/requirements.txt",
+    "cd frontend && npm ci"
+]
+
+[phases.build]
+cmds = [
+    "cd frontend && npm run build",
+    "mkdir -p backend/static",
+    "cp -r frontend/dist/* backend/static/ || true"
+]
+
+[start]
+cmd = "cd backend && python init_db.py && uvicorn main:app --host 0.0.0.0 --port $PORT"
