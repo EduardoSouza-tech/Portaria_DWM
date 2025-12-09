@@ -147,11 +147,13 @@ def main():
     if not create_admin_user():
         sys.exit(1)
     
-    # Perguntar se quer criar dados de exemplo
-    print("\n" + "=" * 60)
-    resposta = input("\n❓ Deseja criar dados de exemplo para testes? (s/n): ").strip().lower()
+    # Criar dados de exemplo automaticamente (Railway não suporta input interativo)
+    import os
+    create_samples = os.getenv('CREATE_SAMPLE_DATA', 'false').lower() == 'true'
     
-    if resposta in ['s', 'sim', 'y', 'yes']:
+    if create_samples:
+        print("\n" + "=" * 60)
+        print("📦 Criando dados de exemplo...")
         create_sample_data()
     
     print("\n" + "=" * 60)

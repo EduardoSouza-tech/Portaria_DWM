@@ -60,10 +60,10 @@ async def list_correspondencias(
     status_filter: str | None = None,
     unidade_id: str | None = None,
     skip: int = 0,
-    limit: int = 100,
+    limit: int = 50,
     db: Session = Depends(get_db)
 ):
-    """List mail/packages with optional filters"""
+    """List mail/packages with optional filters (default limit: 50)"""
     query = db.query(Correspondencia)
     
     if status_filter:

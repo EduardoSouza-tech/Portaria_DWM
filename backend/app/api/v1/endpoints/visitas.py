@@ -56,10 +56,10 @@ class QRCodeResponse(BaseModel):
 async def list_visitas(
     status_filter: str | None = None,
     skip: int = 0,
-    limit: int = 100,
+    limit: int = 50,
     db: Session = Depends(get_db)
 ):
-    """List visits with optional status filter"""
+    """List visits with optional status filter (default limit: 50)"""
     query = db.query(Visita)
     
     if status_filter:

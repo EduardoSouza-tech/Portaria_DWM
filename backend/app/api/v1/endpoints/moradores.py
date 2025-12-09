@@ -41,10 +41,10 @@ class MoradorResponse(BaseModel):
 @router.get("", response_model=List[MoradorResponse])
 async def list_moradores(
     skip: int = 0,
-    limit: int = 100,
+    limit: int = 50,
     db: Session = Depends(get_db)
 ):
-    """List all residents"""
+    """List all residents with pagination (default limit: 50)"""
     moradores = db.query(Morador).filter(Morador.is_active == True).offset(skip).limit(limit).all()
     return moradores
 

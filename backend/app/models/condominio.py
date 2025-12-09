@@ -17,7 +17,7 @@ class Condominio(Base):
     estado = Column(String(2), nullable=False)
     cep = Column(String(8), nullable=False)
     
-    total_unidades = Column(Integer, nullable=False)
+    total_unidades = Column(Integer, nullable=False, default=0)
     total_blocos = Column(Integer, default=1)
     
     telefone = Column(String(20), nullable=True)

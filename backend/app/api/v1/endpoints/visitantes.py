@@ -60,10 +60,10 @@ class VisitanteProgramacaoResponse(BaseModel):
 @router.get("", response_model=List[VisitanteResponse])
 async def list_visitantes(
     skip: int = 0,
-    limit: int = 100,
+    limit: int = 50,
     db: Session = Depends(get_db)
 ):
-    """List all visitors"""
+    """List all visitors with pagination (default limit: 50)"""
     visitantes = db.query(Visitante).offset(skip).limit(limit).all()
     return visitantes
 
@@ -84,14 +84,25 @@ async def create_visitante(visitante_data: VisitanteCreate, db: Session = Depend
     # Se data_visita foi informada, cria uma visita programada
     if data_visita:
         from app.models.visita import VisitaStatus
-        nova_visita = Visita(
-            visitante_id=visitante.id,
-            data_prevista=data_visita,
-            status=VisitaStatus.PENDENTE,
-            motivo="Visita programada no cadastro"
-        )
-        db.add(nova_visita)
-        db.commit()
+        # Obtém a primeira unidade válida do visitante
+        unidade_id = visitante.unidade_id if visitante.unidade_id else None
+        
+        # Só cria visita se houver unidade_id válida
+        if unidade_id:
+            # Valida se unidade existe
+            from app.models.unidade import Unidade
+            unidade_existe = db.query(Unidade).filter(Unidade.id == unidade_id).first()
+            
+            if unidade_existe:
+                nova_visita = Visita(
+                    visitante_id=visitante.id,
+                    unidade_id=unidade_id,
+                    data_prevista=data_visita,
+                    status=VisitaStatus.PENDENTE,
+                    motivo="Visita programada no cadastro"
+                )
+                db.add(nova_visita)
+                db.commit()
     
     return visitante
 

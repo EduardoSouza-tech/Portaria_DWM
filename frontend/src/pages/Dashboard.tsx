@@ -49,63 +49,25 @@ export default function Dashboard() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Buscar dados reais
-  const { data: moradores = [] } = useQuery({
-    queryKey: ['moradores'],
+  // Buscar estatísticas otimizadas em uma única requisição
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ['dashboard-stats'],
     queryFn: async () => {
-      const response = await fetch('http://localhost:8000/api/v1/moradores');
-      if (!response.ok) return [];
+      const response = await fetch('http://localhost:8000/api/v1/dashboard/stats');
+      if (!response.ok) {
+        return {
+          total_moradores: 0,
+          total_visitantes: 0,
+          visitantes_hoje: 0,
+          visitas_dentro: 0,
+          correspondencias_aguardando: 0
+        };
+      }
       return response.json();
     },
+    staleTime: 30000, // Cache por 30 segundos
+    refetchInterval: 60000, // Atualiza a cada 60 segundos
   });
-
-  const { data: visitantes = [] } = useQuery({
-    queryKey: ['visitantes'],
-    queryFn: async () => {
-      const response = await fetch('http://localhost:8000/api/v1/visitantes');
-      if (!response.ok) return [];
-      return response.json();
-    },
-  });
-
-  const { data: visitas = [] } = useQuery({
-    queryKey: ['visitas'],
-    queryFn: async () => {
-      const response = await fetch('http://localhost:8000/api/v1/visitas');
-      if (!response.ok) return [];
-      return response.json();
-    },
-  });
-
-  const { data: correspondencias = [] } = useQuery({
-    queryKey: ['correspondencias'],
-    queryFn: async () => {
-      const response = await fetch('http://localhost:8000/api/v1/correspondencias');
-      if (!response.ok) return [];
-      return response.json();
-    },
-  });
-
-  // Query para visitantes programados hoje
-  const hoje = new Date();
-  const ano = hoje.getFullYear();
-  const mes = String(hoje.getMonth() + 1).padStart(2, '0');
-  const dia = String(hoje.getDate()).padStart(2, '0');
-  const dataHoje = `${ano}-${mes}-${dia}`;
-  
-  const { data: visitantesHoje = [] } = useQuery({
-    queryKey: ['visitantes-hoje', dataHoje],
-    queryFn: async () => {
-      const response = await fetch(`http://localhost:8000/api/v1/visitantes/programacao/data?data=${dataHoje}`);
-      return response.json();
-    },
-  });
-
-  const visitasDentro = visitas.filter((v: any) => v.status === 'DENTRO').length;
-  
-  const correspondenciasAguardando = correspondencias.filter((c: any) => 
-    c.status === 'aguardando_retirada'
-  ).length;
 
   const handleLogout = () => {
     localStorage.removeItem('access_token');
@@ -192,25 +154,25 @@ export default function Dashboard() {
         <div className="cards-grid">
           <div className="card card-blue">
             <h3>👥 Moradores</h3>
-            <p className="card-number">{moradores.length}</p>
+            <p className="card-number">{isLoading ? '...' : stats?.total_moradores || 0}</p>
             <Link to="/moradores" className="card-link">Ver todos →</Link>
           </div>
 
           <div className="card card-green">
             <h3>👤 Visitantes Hoje</h3>
-            <p className="card-number">{visitantesHoje.length}</p>
+            <p className="card-number">{isLoading ? '...' : stats?.visitantes_hoje || 0}</p>
             <Link to="/visitantes" className="card-link">Ver todos →</Link>
           </div>
 
           <div className="card card-orange">
             <h3>🚪 Dentro Agora</h3>
-            <p className="card-number">{visitasDentro}</p>
+            <p className="card-number">{isLoading ? '...' : stats?.visitas_dentro || 0}</p>
             <Link to="/visitas" className="card-link">Ver visitas →</Link>
           </div>
 
           <div className="card card-purple">
             <h3>📦 Correspondências</h3>
-            <p className="card-number">{correspondenciasAguardando}</p>
+            <p className="card-number">{isLoading ? '...' : stats?.correspondencias_aguardando || 0}</p>
             <Link to="/correspondencias" className="card-link">Ver todas →</Link>
           </div>
         </div>
