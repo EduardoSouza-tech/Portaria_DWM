@@ -33,14 +33,28 @@ api.interceptors.response.use(
 // Auth
 export const authAPI = {
   login: async (email: string, password: string) => {
+    console.log('🔵 [API] authAPI.login chamado');
+    console.log('🔵 [API] API_BASE_URL:', API_BASE_URL);
+    console.log('🔵 [API] Email:', email);
+    
     const formData = new FormData();
     formData.append('username', email);
     formData.append('password', password);
     
-    const response = await api.post('/auth/login', formData, {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-    });
-    return response.data;
+    console.log('🔵 [API] FormData criado, enviando POST para /auth/login');
+    
+    try {
+      const response = await api.post('/auth/login', formData, {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+      });
+      console.log('✅ [API] Resposta recebida:', response);
+      console.log('✅ [API] Status:', response.status);
+      console.log('✅ [API] Data:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ [API] Erro no login:', error);
+      throw error;
+    }
   },
   
   register: async (data: { email: string; password: string; nome: string }) => {

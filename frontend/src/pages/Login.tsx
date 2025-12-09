@@ -12,17 +12,33 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('🔵 [LOGIN] Iniciando login...');
+    console.log('📧 Email:', email);
+    console.log('🔑 Senha:', password ? '***' : 'vazia');
+    
     setError('');
     setLoading(true);
 
     try {
+      console.log('🔵 [LOGIN] Chamando API...');
       const data = await authAPI.login(email, password);
+      console.log('✅ [LOGIN] Resposta da API:', data);
+      
       localStorage.setItem('access_token', data.access_token);
       localStorage.setItem('refresh_token', data.refresh_token);
+      console.log('✅ [LOGIN] Tokens salvos, navegando para /');
+      
       navigate('/');
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Erro ao fazer login');
+      console.error('❌ [LOGIN] Erro capturado:', err);
+      console.error('❌ [LOGIN] Resposta:', err.response);
+      console.error('❌ [LOGIN] Dados:', err.response?.data);
+      
+      const errorMsg = err.response?.data?.detail || 'Erro ao fazer login';
+      console.error('❌ [LOGIN] Mensagem de erro:', errorMsg);
+      setError(errorMsg);
     } finally {
+      console.log('🔵 [LOGIN] Finalizando (loading = false)');
       setLoading(false);
     }
   };
