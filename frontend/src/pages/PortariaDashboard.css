@@ -313,24 +313,24 @@
 
 .actions-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: clamp(16px, 2.5vw, 20px);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
 }
 
 @media (max-width: 1024px) {
   .actions-row {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 600px) {
   .actions-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
 .action-btn-portaria {
-  padding: 14px 16px;
+  padding: 16px 12px;
   border-radius: 10px;
   border: none;
   color: white;
@@ -339,13 +339,15 @@
   cursor: pointer;
   transition: all 0.3s ease;
   display: flex;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  white-space: normal;
+  white-space: nowrap;
   text-align: center;
-  min-height: 52px;
+  height: 56px;
   width: 100%;
+  box-sizing: border-box;
 }
 
 .action-btn-portaria.btn-primary {
