@@ -5,7 +5,7 @@
     "nixpacksConfigPath": "nixpacks.toml"
   },
   "deploy": {
-    "startCommand": "cd backend && python init_db.py && uvicorn main:app --host 0.0.0.0 --port $PORT",
+    "startCommand": "cd backend && /opt/venv/bin/python init_db.py && /opt/venv/bin/uvicorn main:app --host 0.0.0.0 --port $PORT",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   }
