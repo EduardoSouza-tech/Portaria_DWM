@@ -27,13 +27,20 @@ def create_admin_user():
         # Verificar se admin já existe
         existing_admin = db.query(User).filter(User.email == "admin@portaria.com").first()
         if existing_admin:
-            print("⚠️  Usuário admin já existe!")
-            return True
+            print("⚠️  Usuário admin já existe! Recriando com senha correta...")
+            # Deletar o usuário existente para recriar
+            db.delete(existing_admin)
+            db.commit()
         
-        # Criar novo admin
+        # Criar novo admin com senha truncada
+        password = "admin123"
+        # Garantir que a senha está dentro do limite do bcrypt
+        if len(password.encode('utf-8')) > 72:
+            password = password[:72]
+        
         admin = User(
             email="admin@portaria.com",
-            password_hash=get_password_hash("admin123"),
+            password_hash=get_password_hash(password),
             nome="Administrador",
             role="admin"
         )
