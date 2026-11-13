@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ActionForm, EmissorFields, MoneyInput, SubmitButton } from "@/components/forms";
 import { ETAPAS_OBRA, FORMAS_PAGAMENTO } from "@/lib/constants";
 import type { ActionState } from "@/lib/form";
+import { hojeISO } from "@/lib/format";
 
 export type AporteDefaults = {
   data?: string;
@@ -37,7 +38,7 @@ export function AporteForm({
     <ActionForm action={action} resetOnSuccess={!edicao} className="grid gap-4 sm:grid-cols-6">
       <div className="sm:col-span-1">
         <label className="label">Data *</label>
-        <input name="data" type="date" required defaultValue={d.data ?? new Date().toISOString().slice(0, 10)} className="input" />
+        <input name="data" type="date" required defaultValue={d.data ?? hojeISO()} className="input" />
       </div>
       <div className="sm:col-span-1">
         <label className="label">Valor (R$) *</label>

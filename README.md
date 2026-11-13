@@ -37,7 +37,7 @@ npm run dev
 ```
 
 ## Deploy (Railway)
-O projeto usa `Dockerfile` + `railway.json`. Variáveis necessárias no serviço:
+O projeto usa `Dockerfile` (detectado automaticamente pelo Railway). No serviço, configure o healthcheck em `/api/health` e as variáveis:
 - `DATABASE_URL` → referência ao Postgres (`${{Postgres.DATABASE_URL}}`)
 - `AUTH_SECRET` → segredo longo e aleatório
 - `ADMIN_EMAIL` / `ADMIN_PASSWORD` → usuário administrador criado no primeiro start

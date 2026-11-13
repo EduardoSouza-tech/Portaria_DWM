@@ -325,7 +325,7 @@ function Consolidado({
   const linhas: { label: string; f: (x: typeof E1) => React.ReactNode }[] = [
     { label: "Empreendimentos / imóveis", f: (x) => x.ativos },
     { label: "Capital investido (aportes / custos)", f: (x) => brl(x.investido) },
-    { label: "Retorno líquido recebido (vendas líquidas + aluguéis)", f: (x) => brl(x.retorno) },
+    { label: "Retorno líquido (vendas líquidas + aluguéis apurados)", f: (x) => brl(x.retorno) },
     { label: "Resultado realizado", f: (x) => <Money v={x.realizado} colored /> },
     { label: "Resultado projetado (carteira com venda estimada)", f: (x) => <Money v={x.projetado} colored /> },
     { label: "Resultado realizado ÷ capital investido", f: (x) => pct(x.investido ? x.realizado / x.investido : null) },

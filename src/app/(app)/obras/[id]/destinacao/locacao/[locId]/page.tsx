@@ -5,7 +5,7 @@ import { Badge, Card, Empty, KV, Money, Stat } from "@/components/ui";
 import { STATUS_LANC, TIPO_LANC_LOCACAO, type TipoLancLocacao } from "@/lib/constants";
 import { prisma } from "@/lib/db";
 import { parseMonth } from "@/lib/form";
-import { brl, dataBR, docMask, inputDate, inputMoney, inputMonth, mesBR, mesKey, n, pct } from "@/lib/format";
+import { brl, dataBR, docMask, hojeISO, inputDate, inputMoney, mesBR, mesKey, n, pct } from "@/lib/format";
 import {
   alterarStatusLancamento,
   atualizarLocacao,
@@ -78,7 +78,7 @@ export default async function LocacaoPage({
   );
   const aportado = o.aportes.reduce((a, x) => a + n(x.valor), 0);
   const pendente = lancs.filter((l) => l.status === "PENDENTE" && TIPO_LANC_LOCACAO[l.tipo].receita).reduce((a, l) => a + n(l.valor), 0);
-  const mesAtual = inputMonth(new Date());
+  const mesAtual = hojeISO().slice(0, 7);
   const base = `/obras/${o.id}/destinacao/locacao/${loc.id}`;
 
   return (

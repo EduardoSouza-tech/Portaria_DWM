@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ActionForm, EmissorFields, MoneyInput, SubmitButton } from "@/components/forms";
 import { GRUPOS_CUSTO, GRUPOS_ORDEM, type GrupoCusto } from "@/lib/constants";
 import type { ActionState } from "@/lib/form";
+import { hojeISO } from "@/lib/format";
 
 export function CustoForm({
   action,
@@ -35,7 +36,7 @@ export function CustoForm({
       </div>
       <div>
         <label className="label">Data</label>
-        <input type="date" name="data" defaultValue={new Date().toISOString().slice(0, 10)} className="input" />
+        <input type="date" name="data" defaultValue={hojeISO()} className="input" />
       </div>
       <div>
         <label className="label">Valor (R$) *</label>

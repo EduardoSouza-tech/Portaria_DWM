@@ -78,9 +78,22 @@ export function mesesEntre(a: Date | null | undefined, b: Date | null | undefine
   return Math.max(0, Math.round((dias / 30.4375) * 10) / 10);
 }
 
+const hojeFmt = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Sao_Paulo",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+/** Data de hoje no Brasil, "YYYY-MM-DD" (igual no servidor e no navegador) */
+export function hojeISO(): string {
+  return hojeFmt.format(new Date());
+}
+
+/** Data de hoje no Brasil como Date (meia-noite UTC, padrão dos campos @db.Date) */
 export function hojeUTC(): Date {
-  const d = new Date();
-  return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const [a, m, d] = hojeISO().split("-").map(Number);
+  return new Date(Date.UTC(a, m - 1, d));
 }
 
 export function mesKey(d: Date): string {

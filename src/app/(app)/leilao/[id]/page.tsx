@@ -8,6 +8,11 @@ import { criarCusto, excluirCusto, excluirImovel, lancarCustosPadrao } from "../
 import { CustoForm } from "../CustoForm";
 import { getImovel, resumoImovel } from "./data";
 
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+  const im = await getImovel((await params).id);
+  return { title: `Leilão #${im.codigo} · ${im.descricao}` };
+}
+
 export default async function ImovelPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [im, emissores] = await Promise.all([getImovel(id), emissoresConhecidos()]);
@@ -64,7 +69,7 @@ export default async function ImovelPage({ params }: { params: Promise<{ id: str
 
       {/* ---------- Planilha ---------- */}
       <div className="mb-6 grid gap-6 xl:grid-cols-3">
-        <div className="grid gap-6 md:grid-cols-3 xl:col-span-2">
+        <div className="grid content-start gap-6 md:grid-cols-3 xl:col-span-2">
           <Card title="Aquisição">
             <Bloco
               grupo="AQUISICAO"

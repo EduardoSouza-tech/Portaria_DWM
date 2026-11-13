@@ -3,6 +3,11 @@ import { Badge, PageHeader } from "@/components/ui";
 import { DESTINACAO, STATUS_OBRA } from "@/lib/constants";
 import { getObra } from "./data";
 
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+  const o = await getObra((await params).id);
+  return { title: `Obra ${o.numero} · ${o.nome}` };
+}
+
 export default async function ObraLayout({ children, params }: { children: React.ReactNode; params: Promise<{ id: string }> }) {
   const { id } = await params;
   const o = await getObra(id);
