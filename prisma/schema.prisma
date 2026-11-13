@@ -1,0 +1,331 @@
+// SASS — Gestão de Investimentos Imobiliários
+// Empresa 1: Participação em obras por administração
+// Empresa 2: Leilão de imóveis
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// Usuários / Empresas
+// ============================================================
+
+enum Role {
+  ADMIN
+  USUARIO
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  nome      String
+  email     String   @unique
+  senhaHash String
+  role      Role     @default(USUARIO)
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// id 1 = Obras por administração | id 2 = Leilão de imóveis
+model Empresa {
+  id        Int      @id
+  nome      String
+  cnpj      String?
+  descricao String?
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// Cadastros auxiliares
+// ============================================================
+
+model Construtora {
+  id           Int      @id @default(autoincrement())
+  razaoSocial  String
+  nomeFantasia String?
+  cnpj         String?
+  responsavel  String?
+  telefone     String?
+  email        String?
+  observacoes  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  obras        Obra[]
+}
+
+model Imobiliaria {
+  id          Int       @id @default(autoincrement())
+  razaoSocial String
+  cnpj        String?
+  creci       String?
+  contato     String?
+  telefone    String?
+  email       String?
+  /// taxa de administração padrão (%)
+  comissaoPct Decimal?  @db.Decimal(6, 2)
+  observacoes String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  locacoes    Locacao[]
+}
+
+model Inquilino {
+  id          Int       @id @default(autoincrement())
+  nome        String
+  cpfCnpj     String?
+  rg          String?
+  telefone    String?
+  email       String?
+  endereco    String?
+  observacoes String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  locacoes    Locacao[]
+}
+
+// ============================================================
+// EMPRESA 1 — Obras por administração
+// ============================================================
+
+enum StatusObra {
+  PLANEJAMENTO
+  EM_ANDAMENTO
+  CONCLUIDA
+  VENDIDA
+  ALUGADA
+}
+
+enum Destinacao {
+  VENDA
+  ALUGUEL
+}
+
+model Obra {
+  id                  Int              @id @default(autoincrement())
+  numero              Int              @unique
+  nome                String
+  endereco            String?
+  bairro              String?
+  cidade              String?
+  uf                  String?
+  cep                 String?
+  matricula           String?
+  cartorio            String?
+  inscricaoIptu       String?
+  construtoraId       Int?
+  construtora         Construtora?     @relation(fields: [construtoraId], references: [id], onDelete: SetNull)
+  custoPrevisto       Decimal          @default(0) @db.Decimal(14, 2)
+  dataInicio          DateTime?        @db.Date
+  dataTerminoPrevista DateTime?        @db.Date
+  dataTermino         DateTime?        @db.Date
+  status              StatusObra       @default(PLANEJAMENTO)
+  destinacao          Destinacao?
+  vendaValor          Decimal?         @db.Decimal(14, 2)
+  vendaData           DateTime?        @db.Date
+  vendaComprador      String?
+  vendaCompradorDoc   String?
+  observacoes         String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  aportes             Aporte[]
+  custosVenda         CustoVendaObra[]
+  locacoes            Locacao[]
+}
+
+model Aporte {
+  id                 Int      @id @default(autoincrement())
+  obraId             Int
+  obra               Obra     @relation(fields: [obraId], references: [id], onDelete: Cascade)
+  data               DateTime @db.Date
+  valor              Decimal  @db.Decimal(14, 2)
+  etapa              String?
+  descricao          String?
+  contrapartida      String?
+  formaPagamento     String?
+  emissorCnpj        String?
+  emissorRazaoSocial String?
+  nfNumero           String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([obraId])
+  @@index([emissorCnpj])
+  @@index([nfNumero])
+  @@index([data])
+}
+
+model CustoVendaObra {
+  id        Int       @id @default(autoincrement())
+  obraId    Int
+  obra      Obra      @relation(fields: [obraId], references: [id], onDelete: Cascade)
+  tipo      String
+  descricao String?
+  valor     Decimal   @db.Decimal(14, 2)
+  data      DateTime? @db.Date
+  createdAt DateTime  @default(now())
+
+  @@index([obraId])
+}
+
+model Locacao {
+  id                   Int                 @id @default(autoincrement())
+  obraId               Int
+  obra                 Obra                @relation(fields: [obraId], references: [id], onDelete: Cascade)
+  inquilinoId          Int
+  inquilino            Inquilino           @relation(fields: [inquilinoId], references: [id], onDelete: Restrict)
+  imobiliariaId        Int?
+  imobiliaria          Imobiliaria?        @relation(fields: [imobiliariaId], references: [id], onDelete: SetNull)
+  valorAluguel         Decimal             @db.Decimal(14, 2)
+  diaVencimento        Int                 @default(10)
+  dataInicio           DateTime            @db.Date
+  dataFim              DateTime?           @db.Date
+  taxaAdministracaoPct Decimal?            @db.Decimal(6, 2)
+  indiceReajuste       String?
+  garantia             String?
+  ativo                Boolean             @default(true)
+  observacoes          String?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  lancamentos          LancamentoLocacao[]
+
+  @@index([obraId])
+}
+
+enum TipoLancamentoLocacao {
+  ALUGUEL
+  OUTRA_RECEITA
+  COMISSAO
+  IPTU
+  CONDOMINIO
+  MANUTENCAO
+  SEGURO
+  OUTRA_DESPESA
+}
+
+enum StatusLancamento {
+  PENDENTE
+  PAGO
+  CANCELADO
+}
+
+model LancamentoLocacao {
+  id            Int                   @id @default(autoincrement())
+  locacaoId     Int
+  locacao       Locacao               @relation(fields: [locacaoId], references: [id], onDelete: Cascade)
+  /// primeiro dia do mês de competência
+  competencia   DateTime              @db.Date
+  tipo          TipoLancamentoLocacao
+  descricao     String?
+  valor         Decimal               @db.Decimal(14, 2)
+  vencimento    DateTime?             @db.Date
+  dataPagamento DateTime?             @db.Date
+  status        StatusLancamento      @default(PENDENTE)
+  /// preparado para remessa/retorno bancário (CNAB)
+  nossoNumero   String?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  @@index([locacaoId, competencia])
+}
+
+// ============================================================
+// EMPRESA 2 — Leilão de imóveis
+// ============================================================
+
+enum StatusLeilao {
+  ANALISE
+  LANCE_DADO
+  ARREMATADO
+  EM_REFORMA
+  A_VENDA
+  VENDIDO
+  NAO_ARREMATADO
+}
+
+enum GrupoCustoLeilao {
+  AQUISICAO
+  REFORMA
+  MANUTENCAO
+  VENDA
+}
+
+model ImovelLeilao {
+  id                 Int               @id @default(autoincrement())
+  codigo             Int               @unique
+  descricao          String
+  tipoImovel         String?
+  endereco           String?
+  bairro             String?
+  cidade             String?
+  uf                 String?
+  cep                String?
+  matricula          String?
+  inscricaoIptu      String?
+  modalidade         String?
+  leiloeiro          String?
+  processo           String?
+  dataLeilao         DateTime?         @db.Date
+  ocupado            Boolean           @default(false)
+  valorAvaliacao     Decimal?          @db.Decimal(14, 2)
+  valorLance         Decimal?          @db.Decimal(14, 2)
+  valorArrematacao   Decimal?          @db.Decimal(14, 2)
+  dataCompra         DateTime?         @db.Date
+  valorVendaEstimado Decimal?          @db.Decimal(14, 2)
+  valorVenda         Decimal?          @db.Decimal(14, 2)
+  dataVenda          DateTime?         @db.Date
+  comprador          String?
+  status             StatusLeilao      @default(ANALISE)
+  observacoes        String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  custos             CustoLeilao[]
+  simulacoes         SimulacaoLeilao[]
+}
+
+model CustoLeilao {
+  id                    Int              @id @default(autoincrement())
+  imovelId              Int
+  imovel                ImovelLeilao     @relation(fields: [imovelId], references: [id], onDelete: Cascade)
+  grupo                 GrupoCustoLeilao
+  categoria             String
+  descricao             String?
+  valor                 Decimal          @db.Decimal(14, 2)
+  data                  DateTime?        @db.Date
+  fornecedorCnpj        String?
+  fornecedorRazaoSocial String?
+  nfNumero              String?
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+
+  @@index([imovelId])
+  @@index([fornecedorCnpj])
+  @@index([nfNumero])
+}
+
+model SimulacaoLeilao {
+  id                 Int           @id @default(autoincrement())
+  nome               String
+  valorArremate      Decimal       @db.Decimal(14, 2)
+  valorVendaEstimado Decimal       @db.Decimal(14, 2)
+  pctLeiloeiro       Decimal       @db.Decimal(6, 2)
+  pctItbi            Decimal       @db.Decimal(6, 2)
+  pctRegistro        Decimal       @db.Decimal(6, 2)
+  pctIr              Decimal       @db.Decimal(6, 2)
+  baseIr             String        @default("LUCRO")
+  pctComissaoVenda   Decimal       @db.Decimal(6, 2)
+  advogado           Decimal       @db.Decimal(14, 2)
+  pctReforma         Decimal       @db.Decimal(6, 2)
+  debitosAto         Decimal       @db.Decimal(14, 2)
+  custoMensal        Decimal       @db.Decimal(14, 2)
+  prazoMeses         Int
+  observacoes        String?
+  imovelId           Int?
+  imovel             ImovelLeilao? @relation(fields: [imovelId], references: [id], onDelete: SetNull)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+}
