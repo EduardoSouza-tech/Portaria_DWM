@@ -1,7 +1,7 @@
 // Consultas agregadas usadas pelo painel, relatórios, pesquisa e exportação
 import type { Prisma } from "@prisma/client";
 import { prisma } from "./db";
-import { calcLeilao, calcObra } from "./calc";
+import { calcLeilao, calcObra, valorLanc } from "./calc";
 import { TIPO_LANC_LOCACAO, type GrupoCusto, type StatusLeilao, type StatusObra, type DestinacaoObra } from "./constants";
 import { hojeUTC, mesBR, mesKey, n, nn, onlyDigits } from "./format";
 import { incluiE1, incluiE2, type Escopo } from "./escopo";
@@ -32,7 +32,9 @@ export async function linhasObras(p?: Periodo) {
         select: {
           ativo: true,
           valorAluguel: true,
-          lancamentos: { select: { tipo: true, valor: true, competencia: true, status: true } },
+          lancamentos: {
+            select: { tipo: true, valor: true, competencia: true, status: true, multa: true, juros: true, desconto: true },
+          },
         },
       },
     },
@@ -51,8 +53,8 @@ export async function linhasObras(p?: Periodo) {
       if (loc.ativo) aluguelMensal += n(loc.valorAluguel);
       for (const l of loc.lancamentos) {
         if (l.status === "CANCELADO" || !noPeriodo(l.competencia, p)) continue;
-        if (TIPO_LANC_LOCACAO[l.tipo].receita) receitasLocacao += n(l.valor);
-        else despesasLocacao += n(l.valor);
+        if (TIPO_LANC_LOCACAO[l.tipo].receita) receitasLocacao += valorLanc(l);
+        else despesasLocacao += valorLanc(l);
       }
     }
     const resultadoLocacao = receitasLocacao - despesasLocacao;
@@ -164,12 +166,12 @@ export async function fluxoMensal(escopo: Escopo, meses = 12) {
       prisma.aporte.findMany({ where: { data: { gte: inicio } }, select: { data: true, valor: true } }),
       prisma.lancamentoLocacao.findMany({
         where: { competencia: { gte: inicio }, status: { not: "CANCELADO" } },
-        select: { competencia: true, valor: true, tipo: true },
+        select: { competencia: true, valor: true, tipo: true, status: true, multa: true, juros: true, desconto: true },
       }),
       prisma.obra.findMany({ where: { vendaData: { gte: inicio } }, select: { vendaData: true, vendaValor: true } }),
     ]);
     aportes.forEach((a) => add(a.data, "e1Saida", n(a.valor)));
-    lancs.forEach((l) => add(l.competencia, TIPO_LANC_LOCACAO[l.tipo].receita ? "e1Entrada" : "e1Saida", n(l.valor)));
+    lancs.forEach((l) => add(l.competencia, TIPO_LANC_LOCACAO[l.tipo].receita ? "e1Entrada" : "e1Saida", valorLanc(l)));
     vendas.forEach((v) => add(v.vendaData, "e1Entrada", n(v.vendaValor)));
   }
   if (incluiE2(escopo)) {

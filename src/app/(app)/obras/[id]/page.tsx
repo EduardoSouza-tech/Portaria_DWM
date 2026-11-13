@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BarrasH } from "@/components/Charts";
 import { DeleteButton } from "@/components/forms";
 import { Card, Empty, KV, Money, Stat } from "@/components/ui";
+import { somaLanc } from "@/lib/calc";
 import { CORES, DESTINACAO } from "@/lib/constants";
 import { brl, dataBR, docMask, n, pct } from "@/lib/format";
 import { excluirObra } from "../actions";
@@ -12,13 +13,7 @@ export default async function ObraResumo({ params }: { params: Promise<{ id: str
   const o = await getObra(id);
   const r = resumoObra(o);
 
-  let receitas = 0;
-  let despesas = 0;
-  for (const l of o.locacoes.flatMap((x) => x.lancamentos)) {
-    if (l.status === "CANCELADO") continue;
-    if (["ALUGUEL", "OUTRA_RECEITA"].includes(l.tipo)) receitas += n(l.valor);
-    else despesas += n(l.valor);
-  }
+  const { receitas, despesas } = somaLanc(o.locacoes.flatMap((x) => x.lancamentos));
   const aluguelMensal = o.locacoes.filter((l) => l.ativo).reduce((a, l) => a + n(l.valorAluguel), 0);
 
   return (

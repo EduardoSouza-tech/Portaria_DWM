@@ -14,7 +14,7 @@ export const getObra = cache(async (idParam: string) => {
       aportes: { orderBy: [{ data: "desc" }, { id: "desc" }] },
       custosVenda: { orderBy: { id: "asc" } },
       locacoes: {
-        include: { inquilino: true, imobiliaria: true, lancamentos: true },
+        include: { inquilino: true, imobiliaria: true, lancamentos: true, reajustes: { orderBy: { id: "desc" } } },
         orderBy: { dataInicio: "desc" },
       },
     },

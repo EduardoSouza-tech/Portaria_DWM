@@ -1,6 +1,7 @@
 import { PrintButton } from "@/components/forms";
 import { Card, KV, Money } from "@/components/ui";
-import { DESTINACAO, STATUS_OBRA, TIPO_LANC_LOCACAO } from "@/lib/constants";
+import { somaLanc } from "@/lib/calc";
+import { DESTINACAO, STATUS_OBRA } from "@/lib/constants";
 import { brl, dataBR, docMask, n, pct } from "@/lib/format";
 import { getObra, resumoObra } from "../data";
 
@@ -72,13 +73,7 @@ export default async function RelatorioObra({ params }: { params: Promise<{ id: 
             )}
             {o.destinacao === "ALUGUEL" &&
               o.locacoes.map((l) => {
-                let rec = 0;
-                let desp = 0;
-                l.lancamentos.forEach((x) => {
-                  if (x.status === "CANCELADO") return;
-                  if (TIPO_LANC_LOCACAO[x.tipo].receita) rec += n(x.valor);
-                  else desp += n(x.valor);
-                });
+                const { receitas: rec, despesas: desp } = somaLanc(l.lancamentos);
                 return (
                   <div key={l.id} className="mb-2">
                     <KV k={`Locação — ${l.inquilino.nome}`} v={`${brl(l.valorAluguel)}/mês`} />

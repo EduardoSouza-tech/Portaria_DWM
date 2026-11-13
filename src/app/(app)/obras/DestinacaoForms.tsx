@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { ActionForm, MoneyInput, SubmitButton } from "@/components/forms";
 import { TIPOS_CUSTO_VENDA_OBRA, TIPO_LANC_LOCACAO, type TipoLancLocacao } from "@/lib/constants";
 import type { ActionState } from "@/lib/form";
@@ -39,12 +40,29 @@ export function VendaForm({
   );
 }
 
-export function CustoVendaForm({ action }: { action: Act }) {
+export function CustoVendaForm({
+  action,
+  d,
+  cancelHref,
+}: {
+  action: Act;
+  /** preenchido = edição */
+  d?: { tipo: string; descricao: string; data: string; valor: string };
+  cancelHref?: string;
+}) {
   return (
-    <ActionForm action={action} resetOnSuccess className="grid gap-3 sm:grid-cols-6">
+    <ActionForm action={action} resetOnSuccess={!d} className="grid gap-3 sm:grid-cols-6">
       <div className="sm:col-span-2">
         <label className="label">Tipo *</label>
-        <input name="tipo" list="tipos-custo-venda" required className="input" placeholder="Imposto, comissão…" autoComplete="off" />
+        <input
+          name="tipo"
+          list="tipos-custo-venda"
+          required
+          defaultValue={d?.tipo}
+          className="input"
+          placeholder="Imposto, comissão…"
+          autoComplete="off"
+        />
         <datalist id="tipos-custo-venda">
           {TIPOS_CUSTO_VENDA_OBRA.map((t) => (
             <option key={t} value={t} />
@@ -53,18 +71,23 @@ export function CustoVendaForm({ action }: { action: Act }) {
       </div>
       <div className="sm:col-span-2">
         <label className="label">Descrição</label>
-        <input name="descricao" className="input" />
+        <input name="descricao" defaultValue={d?.descricao} className="input" />
       </div>
       <div>
         <label className="label">Data</label>
-        <input type="date" name="data" className="input" />
+        <input type="date" name="data" defaultValue={d?.data} className="input" />
       </div>
       <div>
         <label className="label">Valor (R$) *</label>
-        <MoneyInput name="valor" required />
+        <MoneyInput name="valor" required defaultValue={d?.valor} />
       </div>
-      <div className="sm:col-span-6">
-        <SubmitButton className="btn btn-secondary">+ Adicionar custo de venda</SubmitButton>
+      <div className="flex gap-2 sm:col-span-6">
+        <SubmitButton className={d ? "btn btn-e1" : "btn btn-secondary"}>{d ? "Salvar alterações" : "+ Adicionar custo de venda"}</SubmitButton>
+        {cancelHref && (
+          <Link href={cancelHref} className="btn btn-secondary">
+            Cancelar
+          </Link>
+        )}
       </div>
     </ActionForm>
   );
@@ -80,6 +103,8 @@ export type LocacaoDefaults = {
   taxaAdministracaoPct?: string;
   indiceReajuste?: string;
   garantia?: string;
+  multaAtrasoPct?: string;
+  jurosMesPct?: string;
   observacoes?: string;
   ativo?: boolean;
 };
@@ -183,9 +208,17 @@ export function LocacaoForm({
             <option value="IVAR" />
           </datalist>
         </div>
-        <div className="sm:col-span-2">
+        <div className="sm:col-span-4">
           <label className="label">Garantia</label>
           <input name="garantia" defaultValue={d.garantia} placeholder="Caução, fiador, seguro fiança…" className="input" />
+        </div>
+        <div>
+          <label className="label">Multa por atraso (%)</label>
+          <input name="multaAtrasoPct" inputMode="decimal" defaultValue={d.multaAtrasoPct} placeholder="Ex.: 10" className="input" />
+        </div>
+        <div>
+          <label className="label">Juros ao mês (%)</label>
+          <input name="jurosMesPct" inputMode="decimal" defaultValue={d.jurosMesPct} placeholder="Ex.: 1" className="input" />
         </div>
         <div className="sm:col-span-4">
           <label className="label">Observações</label>

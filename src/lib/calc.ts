@@ -1,6 +1,6 @@
 // Regras de cálculo (puras — usadas no servidor e no navegador)
-import type { GrupoCusto } from "./constants";
-import { mesesEntre } from "./format";
+import { TIPO_LANC_LOCACAO, type GrupoCusto, type TipoLancLocacao } from "./constants";
+import { mesesEntre, n } from "./format";
 
 // ------------------------------------------------------------
 // Empresa 1 — Obra
@@ -17,6 +17,68 @@ export function calcObra(i: {
   const resultadoVenda = vendaLiquida !== null ? vendaLiquida - i.totalAportes : null;
   const roiVenda = resultadoVenda !== null && i.totalAportes > 0 ? resultadoVenda / i.totalAportes : null;
   return { saldoPrevisto, execucao, vendaLiquida, resultadoVenda, roiVenda };
+}
+
+// ------------------------------------------------------------
+// Empresa 1 — Lançamentos de locação (aluguéis e despesas)
+// ------------------------------------------------------------
+export type LancValor = {
+  tipo: TipoLancLocacao;
+  status: string;
+  valor: unknown;
+  multa?: unknown;
+  juros?: unknown;
+  desconto?: unknown;
+};
+
+const r2 = (v: number) => Math.round(v * 100) / 100;
+
+/** Valor efetivo: lançamentos pagos incluem multa e juros e abatem o desconto */
+export function valorLanc(l: Omit<LancValor, "tipo">): number {
+  const v = n(l.valor);
+  if (l.status !== "PAGO") return v;
+  return r2(v + n(l.multa) + n(l.juros) - n(l.desconto));
+}
+
+/** Totais de um conjunto de lançamentos (cancelados são ignorados) */
+export function somaLanc(lancs: LancValor[]) {
+  const t = { receitas: 0, despesas: 0, recebido: 0, aReceber: 0, pago: 0, aPagar: 0, resultado: 0 };
+  for (const l of lancs) {
+    if (l.status === "CANCELADO") continue;
+    const v = valorLanc(l);
+    if (TIPO_LANC_LOCACAO[l.tipo].receita) {
+      t.receitas += v;
+      if (l.status === "PAGO") t.recebido += v;
+      else t.aReceber += v;
+    } else {
+      t.despesas += v;
+      if (l.status === "PAGO") t.pago += v;
+      else t.aPagar += v;
+    }
+  }
+  t.resultado = t.receitas - t.despesas;
+  return t;
+}
+
+/** Dias corridos de atraso entre o vencimento e a data de pagamento (0 se em dia) */
+export function diasAtraso(vencimento: Date | null | undefined, ref: Date): number {
+  if (!vencimento) return 0;
+  return Math.max(0, Math.round((ref.getTime() - vencimento.getTime()) / 86_400_000));
+}
+
+/** Multa (% única) e juros de mora (% ao mês, pró-rata dia) sobre o valor em atraso */
+export function encargosAtraso(valor: number, dias: number, multaPct: number | null, jurosMesPct: number | null) {
+  if (dias <= 0) return { multa: 0, juros: 0 };
+  return {
+    multa: r2((valor * (multaPct ?? 0)) / 100),
+    juros: r2((valor * ((jurosMesPct ?? 0) / 100) * dias) / 30),
+  };
+}
+
+/** Competência do próximo reajuste anual (12 meses após o início ou o último reajuste) */
+export function proximoReajuste(dataInicio: Date, ultimoReajuste: Date | null): Date {
+  const base = ultimoReajuste ?? dataInicio;
+  return new Date(Date.UTC(base.getUTCFullYear() + 1, base.getUTCMonth(), 1));
 }
 
 // ------------------------------------------------------------

@@ -191,7 +191,10 @@ export default async function ImovelPage({ params }: { params: Promise<{ id: str
                   </td>
                   <td>{c.nfNumero ?? "—"}</td>
                   <td className="num font-medium">{brl(c.valor)}</td>
-                  <td className="no-print text-right">
+                  <td className="no-print whitespace-nowrap text-right">
+                    <Link href={`/leilao/${im.id}/custo/${c.id}`} className="btn btn-ghost btn-sm">
+                      Editar
+                    </Link>
                     <DeleteButton action={excluirCusto.bind(null, im.id, c.id)} />
                   </td>
                 </tr>

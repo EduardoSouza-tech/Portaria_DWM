@@ -87,29 +87,42 @@ export async function excluirImovel(id: number): Promise<ActionState> {
 // ============================================================
 // Custos (lançamentos da planilha)
 // ============================================================
+function dadosCusto(fd: FormData) {
+  const grupo = req(fd, "grupo", "Grupo") as GrupoCustoLeilao;
+  if (!(grupo in GRUPOS_CUSTO)) throw new FormError("Grupo inválido.");
+  return {
+    grupo,
+    categoria: req(fd, "categoria", "Categoria"),
+    descricao: str(fd, "descricao"),
+    valor: moneyReq(fd, "valor", "Valor"),
+    data: date(fd, "data"),
+    fornecedorCnpj: onlyDigits(str(fd, "fornecedorCnpj")) || null,
+    fornecedorRazaoSocial: str(fd, "fornecedorRazaoSocial"),
+    nfNumero: str(fd, "nfNumero"),
+  };
+}
+
 export async function criarCusto(imovelId: number, _: ActionState, fd: FormData): Promise<ActionState> {
   await requireUser();
   try {
-    const grupo = req(fd, "grupo", "Grupo") as GrupoCustoLeilao;
-    if (!(grupo in GRUPOS_CUSTO)) throw new FormError("Grupo inválido.");
-    await prisma.custoLeilao.create({
-      data: {
-        imovelId,
-        grupo,
-        categoria: req(fd, "categoria", "Categoria"),
-        descricao: str(fd, "descricao"),
-        valor: moneyReq(fd, "valor", "Valor"),
-        data: date(fd, "data"),
-        fornecedorCnpj: onlyDigits(str(fd, "fornecedorCnpj")) || null,
-        fornecedorRazaoSocial: str(fd, "fornecedorRazaoSocial"),
-        nfNumero: str(fd, "nfNumero"),
-      },
-    });
+    await prisma.custoLeilao.create({ data: { imovelId, ...dadosCusto(fd) } });
   } catch (e) {
     return toActionError(e);
   }
   revalidar(imovelId);
   return { ok: "Custo lançado." };
+}
+
+export async function atualizarCusto(imovelId: number, id: number, _: ActionState, fd: FormData): Promise<ActionState> {
+  await requireUser();
+  try {
+    await prisma.custoLeilao.update({ where: { id, imovelId }, data: dadosCusto(fd) });
+  } catch (e) {
+    return toActionError(e);
+  }
+  revalidar(imovelId);
+  revalidatePath("/notas");
+  redirect(`/leilao/${imovelId}`);
 }
 
 export async function excluirCusto(imovelId: number, id: number): Promise<ActionState | void> {

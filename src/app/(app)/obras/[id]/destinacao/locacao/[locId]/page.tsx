@@ -2,19 +2,23 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActionButton, DeleteButton, PrintButton } from "@/components/forms";
 import { Badge, Card, Empty, KV, Money, Stat } from "@/components/ui";
+import { diasAtraso, proximoReajuste, somaLanc, valorLanc } from "@/lib/calc";
 import { STATUS_LANC, TIPO_LANC_LOCACAO, type TipoLancLocacao } from "@/lib/constants";
 import { prisma } from "@/lib/db";
 import { parseMonth } from "@/lib/form";
-import { brl, dataBR, docMask, hojeISO, inputDate, inputMoney, mesBR, mesKey, n, pct } from "@/lib/format";
+import { brl, dataBR, docMask, hojeISO, hojeUTC, inputDate, inputMoney, mesBR, mesKey, n, pct } from "@/lib/format";
 import {
-  alterarStatusLancamento,
   atualizarLocacao,
   criarLancamento,
-  excluirLancamento,
+  desfazerReajuste,
+  encerrarLocacao,
+  estornarBaixa,
   excluirLocacao,
   gerarCompetencia,
+  reajustarAluguel,
 } from "../../../../actions";
 import { GerarCompetenciaForm, LancamentoForm, LocacaoForm } from "../../../../DestinacaoForms";
+import { EncerrarForm, ReajusteForm } from "../../../../ManutencaoForms";
 import { getObra } from "../../../data";
 
 const COLS: { label: string; tipos: TipoLancLocacao[] }[] = [
@@ -23,6 +27,8 @@ const COLS: { label: string; tipos: TipoLancLocacao[] }[] = [
   { label: "Condomínio", tipos: ["CONDOMINIO"] },
   { label: "Outras desp.", tipos: ["MANUTENCAO", "SEGURO", "OUTRA_DESPESA"] },
 ];
+
+const pctBR = (v: unknown) => `${n(v).toLocaleString("pt-BR")}%`;
 
 export default async function LocacaoPage({
   params,
@@ -42,24 +48,23 @@ export default async function LocacaoPage({
     prisma.imobiliaria.findMany({ select: { id: true, razaoSocial: true, comissaoPct: true }, orderBy: { razaoSocial: "asc" } }),
   ]);
 
+  const hoje = hojeUTC();
   const de = parseMonth(f.de);
   const ate = parseMonth(f.ate);
   const lancs = loc.lancamentos
     .filter((l) => (!de || l.competencia >= de) && (!ate || l.competencia <= ate))
-    .sort((a, b) => b.competencia.getTime() - a.competencia.getTime() || a.tipo.localeCompare(b.tipo));
+    .sort((a, b) => b.competencia.getTime() - a.competencia.getTime() || a.tipo.localeCompare(b.tipo) || a.id - b.id);
 
-  // Resultado por período (competência)
-  type Linha = { comp: Date; receitas: number; cols: number[]; despesas: number; recebido: number };
+  // Resultado por período (competência) — valores efetivos (com multa/juros/desconto das baixas)
+  type Linha = { comp: Date; receitas: number; cols: number[]; despesas: number };
   const porMes = new Map<string, Linha>();
   for (const l of lancs) {
     if (l.status === "CANCELADO") continue;
     const k = mesKey(l.competencia);
-    const row = porMes.get(k) ?? { comp: l.competencia, receitas: 0, cols: COLS.map(() => 0), despesas: 0, recebido: 0 };
-    const v = n(l.valor);
-    if (TIPO_LANC_LOCACAO[l.tipo].receita) {
-      row.receitas += v;
-      if (l.status === "PAGO") row.recebido += v;
-    } else {
+    const row = porMes.get(k) ?? { comp: l.competencia, receitas: 0, cols: COLS.map(() => 0), despesas: 0 };
+    const v = valorLanc(l);
+    if (TIPO_LANC_LOCACAO[l.tipo].receita) row.receitas += v;
+    else {
       row.despesas += v;
       const ci = COLS.findIndex((c) => c.tipos.includes(l.tipo));
       if (ci >= 0) row.cols[ci] += v;
@@ -67,19 +72,17 @@ export default async function LocacaoPage({
     porMes.set(k, row);
   }
   const meses = [...porMes.values()].sort((a, b) => a.comp.getTime() - b.comp.getTime());
-  const tot = meses.reduce(
-    (a, m) => ({
-      receitas: a.receitas + m.receitas,
-      despesas: a.despesas + m.despesas,
-      recebido: a.recebido + m.recebido,
-      cols: a.cols.map((c, i) => c + m.cols[i]),
-    }),
-    { receitas: 0, despesas: 0, recebido: 0, cols: COLS.map(() => 0) },
-  );
+  const colsTot = COLS.map((_, i) => meses.reduce((a, m) => a + m.cols[i], 0));
+  const tot = somaLanc(lancs);
+  const vencidos = lancs.filter((l) => l.status === "PENDENTE" && TIPO_LANC_LOCACAO[l.tipo].receita && diasAtraso(l.vencimento, hoje) > 0);
+  const totVencido = vencidos.reduce((a, l) => a + n(l.valor), 0);
   const aportado = o.aportes.reduce((a, x) => a + n(x.valor), 0);
-  const pendente = lancs.filter((l) => l.status === "PENDENTE" && TIPO_LANC_LOCACAO[l.tipo].receita).reduce((a, l) => a + n(l.valor), 0);
   const mesAtual = hojeISO().slice(0, 7);
   const base = `/obras/${o.id}/destinacao/locacao/${loc.id}`;
+
+  const ultimoReajuste = loc.reajustes[0] ?? null;
+  const proxReajuste = proximoReajuste(loc.dataInicio, ultimoReajuste?.aPartirDe ?? null);
+  const reajusteDevido = loc.ativo && mesKey(proxReajuste) <= mesAtual;
 
   return (
     <div className="space-y-6">
@@ -99,15 +102,36 @@ export default async function LocacaoPage({
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat tone="e1" label="Aluguel" value={`${brl(loc.valorAluguel)}/mês`} hint={`Vence todo dia ${loc.diaVencimento}`} />
-        <Stat tone="e1" label="Receitas no período" value={brl(tot.receitas)} hint={`Recebido: ${brl(tot.recebido)} · A receber: ${brl(pendente)}`} />
-        <Stat tone="e1" label="Despesas no período" value={brl(tot.despesas)} />
         <Stat
-          tone={tot.receitas - tot.despesas >= 0 ? "pos" : "neg"}
+          tone="e1"
+          label="Receitas no período"
+          value={brl(tot.receitas)}
+          hint={`Recebido: ${brl(tot.recebido)} · A receber: ${brl(tot.aReceber)}`}
+        />
+        <Stat tone="e1" label="Despesas no período" value={brl(tot.despesas)} hint={tot.aPagar ? `A pagar: ${brl(tot.aPagar)}` : undefined} />
+        <Stat
+          tone={tot.resultado >= 0 ? "pos" : "neg"}
           label="Resultado no período"
-          value={brl(tot.receitas - tot.despesas)}
-          hint={`Sobre o aportado: ${pct(aportado > 0 ? (tot.receitas - tot.despesas) / aportado : null)}`}
+          value={brl(tot.resultado)}
+          hint={`Sobre o aportado: ${pct(aportado > 0 ? tot.resultado / aportado : null)}`}
         />
       </div>
+
+      {(vencidos.length > 0 || reajusteDevido) && (
+        <div className="no-print space-y-2">
+          {vencidos.length > 0 && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
+              {vencidos.length} recebimento(s) vencido(s), somando {brl(totVencido)}. Abra o lançamento para dar baixa com multa e juros.
+            </div>
+          )}
+          {reajusteDevido && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+              Reajuste anual previsto para {mesBR(proxReajuste)}
+              {loc.indiceReajuste ? ` (${loc.indiceReajuste})` : ""}. Aplique em “Reajuste do aluguel” abaixo.
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid gap-6 xl:grid-cols-3">
         <Card title="Resultado por período (competência)" className="xl:col-span-2" bodyClass="table-wrap">
@@ -165,13 +189,13 @@ export default async function LocacaoPage({
                 <tr>
                   <td>Total</td>
                   <td className="num">{brl(tot.receitas)}</td>
-                  {tot.cols.map((c, i) => (
+                  {colsTot.map((c, i) => (
                     <td key={i} className="num">
                       {brl(c)}
                     </td>
                   ))}
                   <td className="num">
-                    <Money v={tot.receitas - tot.despesas} colored />
+                    <Money v={tot.resultado} colored />
                   </td>
                 </tr>
               </tfoot>
@@ -184,14 +208,19 @@ export default async function LocacaoPage({
           <KV k="CPF/CNPJ" v={loc.inquilino.cpfCnpj ? docMask(loc.inquilino.cpfCnpj) : null} />
           <KV k="Contato" v={[loc.inquilino.telefone, loc.inquilino.email].filter(Boolean).join(" · ") || null} />
           <KV k="Imobiliária" v={loc.imobiliaria?.razaoSocial} />
-          <KV k="Taxa adm./comissão" v={loc.taxaAdministracaoPct !== null ? `${n(loc.taxaAdministracaoPct).toLocaleString("pt-BR")}%` : null} />
+          <KV k="Taxa adm./comissão" v={loc.taxaAdministracaoPct !== null ? pctBR(loc.taxaAdministracaoPct) : null} />
           <KV k="Vigência" v={`${dataBR(loc.dataInicio)} – ${loc.dataFim ? dataBR(loc.dataFim) : "indeterminado"}`} />
           <KV k="Reajuste" v={loc.indiceReajuste} />
+          <KV k="Próximo reajuste" v={loc.ativo ? mesBR(proxReajuste) : null} />
+          <KV
+            k="Multa / juros por atraso"
+            v={
+              loc.multaAtrasoPct !== null || loc.jurosMesPct !== null
+                ? `${pctBR(loc.multaAtrasoPct)} + ${pctBR(loc.jurosMesPct)} a.m.`
+                : null
+            }
+          />
           <KV k="Garantia" v={loc.garantia} />
-          <div className="mt-4 rounded-lg border border-dashed border-slate-300 p-3 text-xs text-slate-500">
-            <strong className="text-slate-700">Remessa/retorno bancário (CNAB):</strong> os lançamentos já possuem campo de “nosso número”
-            preparado para a futura emissão de boletos e conciliação por arquivo de retorno.
-          </div>
         </Card>
       </div>
 
@@ -227,6 +256,9 @@ export default async function LocacaoPage({
             <tbody>
               {lancs.map((l) => {
                 const rec = TIPO_LANC_LOCACAO[l.tipo].receita;
+                const atraso = l.status === "PENDENTE" ? diasAtraso(l.vencimento, hoje) : 0;
+                const efetivo = valorLanc(l);
+                const href = `${base}/lancamento/${l.id}`;
                 return (
                   <tr key={l.id} className={l.status === "CANCELADO" ? "opacity-50" : ""}>
                     <td>{mesBR(l.competencia)}</td>
@@ -234,38 +266,107 @@ export default async function LocacaoPage({
                       <span className={rec ? "pos" : "neg"}>{rec ? "↑" : "↓"}</span> {TIPO_LANC_LOCACAO[l.tipo].label}
                     </td>
                     <td className="text-slate-600">{l.descricao ?? "—"}</td>
-                    <td>{dataBR(l.vencimento)}</td>
+                    <td className={atraso > 0 ? "text-red-600" : ""}>
+                      {dataBR(l.vencimento)}
+                      {atraso > 0 && <div className="text-xs">vencido há {atraso} dia(s)</div>}
+                    </td>
                     <td>
                       <Badge tone={STATUS_LANC[l.status].tone}>{STATUS_LANC[l.status].label}</Badge>
-                      {l.dataPagamento && <div className="text-xs text-slate-400">{dataBR(l.dataPagamento)}</div>}
+                      {l.dataPagamento && (
+                        <div className="text-xs text-slate-400">
+                          {dataBR(l.dataPagamento)}
+                          {l.formaPagamento ? ` · ${l.formaPagamento}` : ""}
+                        </div>
+                      )}
                     </td>
                     <td className={`num font-medium ${rec ? "" : "text-slate-600"}`}>
                       {rec ? "" : "−"}
                       {brl(l.valor)}
+                      {l.status === "PAGO" && efetivo !== n(l.valor) && (
+                        <div className="text-xs font-normal text-slate-500">
+                          {rec ? "recebido" : "pago"} {brl(efetivo)}
+                        </div>
+                      )}
                     </td>
                     <td className="no-print whitespace-nowrap text-right">
-                      {l.status !== "PAGO" && (
-                        <ActionButton action={alterarStatusLancamento.bind(null, o.id, l.id, "PAGO")} className="btn btn-secondary btn-sm">
-                          {rec ? "Recebido" : "Pago"}
-                        </ActionButton>
+                      {l.status === "PENDENTE" && (
+                        <Link href={href} className="btn btn-secondary btn-sm">
+                          {rec ? "Receber" : "Pagar"}
+                        </Link>
                       )}
                       {l.status === "PAGO" && (
-                        <ActionButton action={alterarStatusLancamento.bind(null, o.id, l.id, "PENDENTE")} className="btn btn-ghost btn-sm">
+                        <ActionButton
+                          action={estornarBaixa.bind(null, o.id, l.id)}
+                          confirmText="Estornar a baixa? O lançamento volta para pendente."
+                          className="btn btn-ghost btn-sm"
+                        >
                           Estornar
                         </ActionButton>
                       )}
-                      {l.status !== "CANCELADO" && (
-                        <ActionButton action={alterarStatusLancamento.bind(null, o.id, l.id, "CANCELADO")} className="btn btn-ghost btn-sm">
-                          Cancelar
-                        </ActionButton>
-                      )}
-                      <DeleteButton action={excluirLancamento.bind(null, o.id, l.id)} />
+                      <Link href={href} className="btn btn-ghost btn-sm">
+                        Editar
+                      </Link>
                     </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
+        )}
+      </Card>
+
+      <Card title="Reajuste do aluguel" className="no-print">
+        {loc.ativo ? (
+          <ReajusteForm
+            action={reajustarAluguel.bind(null, o.id, loc.id)}
+            valorAtual={n(loc.valorAluguel)}
+            aPartirDe={mesKey(proxReajuste)}
+            indice={loc.indiceReajuste ?? ""}
+          />
+        ) : (
+          <p className="text-sm text-slate-500">Contrato encerrado.</p>
+        )}
+        {loc.reajustes.length > 0 && (
+          <div className="table-wrap mt-5">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>A partir de</th>
+                  <th>Índice</th>
+                  <th className="num">%</th>
+                  <th className="num">De</th>
+                  <th className="num">Para</th>
+                  <th className="num">Pendentes atualiz.</th>
+                  <th>Observação</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {loc.reajustes.map((r, i) => (
+                  <tr key={r.id}>
+                    <td>{mesBR(r.aPartirDe)}</td>
+                    <td>{r.indice ?? "—"}</td>
+                    <td className="num">{r.percentual !== null ? `${n(r.percentual).toLocaleString("pt-BR", { maximumFractionDigits: 4 })}%` : "—"}</td>
+                    <td className="num">{brl(r.valorAnterior)}</td>
+                    <td className="num font-medium">{brl(r.valorNovo)}</td>
+                    <td className="num">{r.lancamentosAtualizados}</td>
+                    <td className="text-slate-600">{r.observacoes ?? "—"}</td>
+                    <td className="text-right">
+                      {i === 0 && (
+                        <ActionButton
+                          action={desfazerReajuste.bind(null, o.id, loc.id, r.id)}
+                          confirmText={`Desfazer este reajuste? O aluguel volta para ${brl(r.valorAnterior)} e os pendentes com o valor novo também.`}
+                          className="btn btn-ghost btn-sm"
+                        >
+                          Desfazer
+                        </ActionButton>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
 
@@ -287,10 +388,21 @@ export default async function LocacaoPage({
               taxaAdministracaoPct: loc.taxaAdministracaoPct === null ? "" : n(loc.taxaAdministracaoPct).toLocaleString("pt-BR"),
               indiceReajuste: loc.indiceReajuste ?? "",
               garantia: loc.garantia ?? "",
+              multaAtrasoPct: loc.multaAtrasoPct === null ? "" : n(loc.multaAtrasoPct).toLocaleString("pt-BR"),
+              jurosMesPct: loc.jurosMesPct === null ? "" : n(loc.jurosMesPct).toLocaleString("pt-BR"),
               observacoes: loc.observacoes ?? "",
               ativo: loc.ativo,
             }}
           />
+          <p className="mt-2 text-xs text-slate-500">
+            Alterar o valor aqui não mexe nos lançamentos já gerados. Para reajuste com histórico, use “Reajuste do aluguel”.
+          </p>
+          {loc.ativo && (
+            <div className="mt-6 border-t border-slate-100 pt-4">
+              <h3 className="mb-3 text-sm font-semibold">Encerrar contrato</h3>
+              <EncerrarForm action={encerrarLocacao.bind(null, o.id, loc.id)} />
+            </div>
+          )}
           <div className="mt-6 border-t border-slate-100 pt-4">
             <DeleteButton
               action={excluirLocacao.bind(null, o.id, loc.id)}

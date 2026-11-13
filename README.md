@@ -10,7 +10,12 @@ Sistema com **dois módulos que conversam entre si**, como duas empresas. Em tod
 - Ao finalizar a obra, **destinação**:
   - **Venda**: valor, data, comprador, custos de venda (impostos, comissão, etc.) → resultado e ROI do empreendimento
   - **Aluguel**: contrato com inquilino e imobiliária, taxa de administração, geração mensal de aluguel e comissão, lançamentos de IPTU, condomínio etc. → **resultado por período**
-  - Campo “nosso número” já preparado para a futura remessa/retorno bancário (CNAB)
+  - **Manutenção dos lançamentos** (baixa manual): data do pagamento, multa, juros (sugeridos pelo atraso conforme o contrato), desconto, forma de pagamento e observação; **pagamento parcial** (o saldo vira novo lançamento em aberto); estorno da baixa; edição e prorrogação de vencimento; cancelamento/reativação
+  - **Títulos em aberto** com **baixa em lote** (tela Locações) e aviso de aluguéis vencidos no painel
+  - **Reajuste do aluguel** por percentual ou novo valor, com histórico, atualização dos pendentes (e da comissão) e opção de desfazer; aviso do próximo reajuste anual
+  - **Encerramento do contrato**: data de saída e cancelamento dos lançamentos futuros
+  - Baixa automática via Open Finance prevista para o futuro (campo “nosso número” reservado para a conciliação)
+- Custos de venda da obra e custos do leilão podem ser editados
 - Relatório completo por obra (imprimível/PDF)
 
 ## Empresa 2 — Leilão de imóveis

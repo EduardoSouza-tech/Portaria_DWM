@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ActionButton, DeleteButton } from "@/components/forms";
 import { Badge, Card, Empty, KV, Money } from "@/components/ui";
-import { TIPO_LANC_LOCACAO } from "@/lib/constants";
+import { somaLanc } from "@/lib/calc";
 import { prisma } from "@/lib/db";
 import { brl, dataBR, docMask, inputDate, inputMoney, n, pct } from "@/lib/format";
 import { criarCustoVenda, criarLocacao, definirDestinacao, excluirCustoVenda, salvarVenda } from "../../actions";
@@ -80,7 +80,10 @@ export default async function DestinacaoPage({ params }: { params: Promise<{ id:
                           <td className="text-slate-600">{c.descricao ?? "—"}</td>
                           <td>{dataBR(c.data)}</td>
                           <td className="num">{brl(c.valor)}</td>
-                          <td className="text-right">
+                          <td className="whitespace-nowrap text-right">
+                            <Link href={`/obras/${o.id}/destinacao/custo/${c.id}`} className="btn btn-ghost btn-sm">
+                              Editar
+                            </Link>
                             <DeleteButton action={excluirCustoVenda.bind(null, o.id, c.id)} />
                           </td>
                         </tr>
@@ -150,13 +153,7 @@ export default async function DestinacaoPage({ params }: { params: Promise<{ id:
               </thead>
               <tbody>
                 {o.locacoes.map((l) => {
-                  let rec = 0;
-                  let desp = 0;
-                  for (const x of l.lancamentos) {
-                    if (x.status === "CANCELADO") continue;
-                    if (TIPO_LANC_LOCACAO[x.tipo].receita) rec += n(x.valor);
-                    else desp += n(x.valor);
-                  }
+                  const { receitas: rec, despesas: desp } = somaLanc(l.lancamentos);
                   return (
                     <tr key={l.id}>
                       <td>

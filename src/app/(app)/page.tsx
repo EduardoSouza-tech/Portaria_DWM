@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { BarrasH, FluxoChart } from "@/components/Charts";
 import { Badge, Card, Empty, Money, PageHeader, Stat } from "@/components/ui";
-import { CORES, STATUS_LEILAO, STATUS_OBRA } from "@/lib/constants";
+import { CORES, STATUS_LEILAO, STATUS_OBRA, TIPO_LANC_LOCACAO, type TipoLancLocacao } from "@/lib/constants";
+import { prisma } from "@/lib/db";
 import { getEscopo, incluiE1, incluiE2 } from "@/lib/escopo";
-import { brl, pct } from "@/lib/format";
+import { brl, hojeISO, hojeUTC, pct } from "@/lib/format";
 import { fluxoMensal, linhasLeilao, linhasObras } from "@/lib/queries";
 
 export const metadata = { title: "Painel" };
@@ -12,10 +13,18 @@ export default async function Painel() {
   const escopo = await getEscopo();
   const e1 = incluiE1(escopo);
   const e2 = incluiE2(escopo);
-  const [obras, imoveis, fluxo] = await Promise.all([
+  const receitas = (Object.keys(TIPO_LANC_LOCACAO) as TipoLancLocacao[]).filter((t) => TIPO_LANC_LOCACAO[t].receita);
+  const [obras, imoveis, fluxo, vencidos] = await Promise.all([
     e1 ? linhasObras() : Promise.resolve([]),
     e2 ? linhasLeilao() : Promise.resolve([]),
     fluxoMensal(escopo, 12),
+    e1
+      ? prisma.lancamentoLocacao.aggregate({
+          where: { status: "PENDENTE", tipo: { in: receitas }, vencimento: { lt: hojeUTC() } },
+          _count: true,
+          _sum: { valor: true },
+        })
+      : Promise.resolve(null),
   ]);
 
   // ---- Empresa 1
@@ -72,6 +81,18 @@ export default async function Painel() {
           </>
         }
       />
+
+      {vencidos && vencidos._count > 0 && (
+        <Link
+          href={`/locacoes?tipo=rec&venc=${hojeISO()}`}
+          className="mb-6 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 hover:bg-red-100"
+        >
+          <span>
+            <strong>{vencidos._count} recebimento(s) de aluguel vencido(s)</strong>, somando {brl(vencidos._sum.valor)}.
+          </span>
+          <span className="font-medium">Ver e dar baixa →</span>
+        </Link>
+      )}
 
       {escopo === "ambas" && (
         <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

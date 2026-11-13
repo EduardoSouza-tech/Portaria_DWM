@@ -1,14 +1,30 @@
+import type { Prisma } from "@prisma/client";
 import Link from "next/link";
 import { Badge, Card, Empty, Money, PageHeader, Stat } from "@/components/ui";
-import { TIPO_LANC_LOCACAO } from "@/lib/constants";
+import { diasAtraso, proximoReajuste, valorLanc } from "@/lib/calc";
+import { TIPO_LANC_LOCACAO, type TipoLancLocacao } from "@/lib/constants";
 import { prisma } from "@/lib/db";
-import { parseMonth } from "@/lib/form";
-import { brl, dataBR, mesBR, mesKey, n } from "@/lib/format";
+import { parseDate, parseMonth } from "@/lib/form";
+import { brl, dataBR, hojeISO, hojeUTC, mesBR, mesKey, n } from "@/lib/format";
+import { baixarEmLote } from "../obras/actions";
+import { BaixaLote, type TituloAberto } from "./BaixaLote";
+
+const TIPOS_RECEITA = (Object.keys(TIPO_LANC_LOCACAO) as TipoLancLocacao[]).filter((t) => TIPO_LANC_LOCACAO[t].receita);
 
 export const metadata = { title: "Locações" };
 
-export default async function LocacoesPage({ searchParams }: { searchParams: Promise<{ de?: string; ate?: string }> }) {
+export default async function LocacoesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ de?: string; ate?: string; venc?: string; tipo?: string }>;
+}) {
   const f = await searchParams;
+  const hojeBR = hojeUTC();
+  const mesAtual = hojeISO().slice(0, 7);
+  // títulos em aberto: por padrão, vencidos ou vencendo até o fim do mês corrente
+  const fimDoMes = new Date(Date.UTC(hojeBR.getUTCFullYear(), hojeBR.getUTCMonth() + 1, 0));
+  const vencAte = parseDate(f.venc) ?? fimDoMes;
+  const filtroTipo = f.tipo === "rec" || f.tipo === "desp" ? f.tipo : "";
   const hoje = new Date();
   const padraoDe = `${hoje.getFullYear()}-01`;
   const padraoAte = `${hoje.getFullYear()}-12`;
@@ -21,9 +37,38 @@ export default async function LocacoesPage({ searchParams }: { searchParams: Pro
       inquilino: { select: { nome: true } },
       imobiliaria: { select: { razaoSocial: true } },
       lancamentos: true,
+      reajustes: { orderBy: { id: "desc" }, take: 1, select: { aPartirDe: true } },
     },
     orderBy: [{ ativo: "desc" }, { dataInicio: "desc" }],
   });
+
+  const whereAbertos: Prisma.LancamentoLocacaoWhereInput = {
+    status: "PENDENTE",
+    OR: [{ vencimento: { lte: vencAte } }, { vencimento: null }],
+  };
+  if (filtroTipo) whereAbertos.tipo = filtroTipo === "rec" ? { in: TIPOS_RECEITA } : { notIn: TIPOS_RECEITA };
+  const abertos = await prisma.lancamentoLocacao.findMany({
+    where: whereAbertos,
+    include: { locacao: { select: { id: true, inquilino: { select: { nome: true } }, obra: { select: { id: true, numero: true, nome: true } } } } },
+    orderBy: [{ vencimento: { sort: "asc", nulls: "last" } }, { id: "asc" }],
+    take: 500,
+  });
+  const titulos: TituloAberto[] = abertos.map((t) => ({
+    id: t.id,
+    href: `/obras/${t.locacao.obra.id}/destinacao/locacao/${t.locacao.id}/lancamento/${t.id}`,
+    contrato: t.locacao.inquilino.nome,
+    obra: `Obra ${t.locacao.obra.numero} — ${t.locacao.obra.nome}`,
+    competencia: mesBR(t.competencia),
+    tipo: TIPO_LANC_LOCACAO[t.tipo].label,
+    receita: TIPO_LANC_LOCACAO[t.tipo].receita,
+    descricao: t.descricao,
+    vencimento: dataBR(t.vencimento),
+    valor: n(t.valor),
+    atraso: diasAtraso(t.vencimento, hojeBR),
+  }));
+  const abertosRec = titulos.filter((t) => t.receita).reduce((a, t) => a + t.valor, 0);
+  const abertosDesp = titulos.filter((t) => !t.receita).reduce((a, t) => a + t.valor, 0);
+  const vencidosRec = titulos.filter((t) => t.receita && t.atraso > 0);
 
   const porMes = new Map<string, { comp: Date; rec: number; desp: number }>();
   let totRec = 0;
@@ -35,7 +80,7 @@ export default async function LocacoesPage({ searchParams }: { searchParams: Pro
     for (const x of l.lancamentos) {
       if (x.status === "CANCELADO") continue;
       if ((de && x.competencia < de) || (ate && x.competencia > ate)) continue;
-      const v = n(x.valor);
+      const v = valorLanc(x);
       const receita = TIPO_LANC_LOCACAO[x.tipo].receita;
       if (receita) rec += v;
       else desp += v;
@@ -71,6 +116,8 @@ export default async function LocacoesPage({ searchParams }: { searchParams: Pro
             <label className="label">até</label>
             <input type="month" name="ate" defaultValue={f.ate ?? padraoAte} className="input" />
           </div>
+          {f.venc && <input type="hidden" name="venc" value={f.venc} />}
+          {filtroTipo && <input type="hidden" name="tipo" value={filtroTipo} />}
           <button className="btn btn-e1">Apurar</button>
         </form>
       </Card>
@@ -81,6 +128,49 @@ export default async function LocacoesPage({ searchParams }: { searchParams: Pro
         <Stat tone="e1" label="Despesas no período" value={brl(totDesp)} />
         <Stat tone={totRec - totDesp >= 0 ? "pos" : "neg"} label="Resultado no período" value={brl(totRec - totDesp)} />
       </div>
+
+      <Card
+        className="no-print mb-6"
+        title={
+          <>
+            Títulos em aberto até {dataBR(vencAte)}
+            <span className="ml-2 font-normal text-slate-500">
+              a receber {brl(abertosRec)} · a pagar {brl(abertosDesp)}
+              {vencidosRec.length > 0 && (
+                <span className="ml-2">
+                  <Badge tone="red">{vencidosRec.length} recebimento(s) vencido(s)</Badge>
+                </span>
+              )}
+            </span>
+          </>
+        }
+        bodyClass=""
+      >
+        <form className="flex flex-wrap items-end gap-3 border-b border-slate-100 p-4">
+          <div>
+            <label className="label">Vencimento até</label>
+            <input type="date" name="venc" defaultValue={f.venc ?? fimDoMes.toISOString().slice(0, 10)} className="input" />
+          </div>
+          <div>
+            <label className="label">Tipo</label>
+            <select name="tipo" defaultValue={filtroTipo} className="input">
+              <option value="">Receitas e despesas</option>
+              <option value="rec">Só a receber</option>
+              <option value="desp">Só a pagar</option>
+            </select>
+          </div>
+          {f.de && <input type="hidden" name="de" value={f.de} />}
+          {f.ate && <input type="hidden" name="ate" value={f.ate} />}
+          <button className="btn btn-secondary">Filtrar</button>
+        </form>
+        {titulos.length === 0 ? (
+          <div className="p-5">
+            <Empty>Nenhum título em aberto até essa data.</Empty>
+          </div>
+        ) : (
+          <BaixaLote action={baixarEmLote} titulos={titulos} />
+        )}
+      </Card>
 
       <div className="grid gap-6 xl:grid-cols-3">
         <Card title="Contratos" className="xl:col-span-2" bodyClass="table-wrap">
@@ -96,6 +186,7 @@ export default async function LocacoesPage({ searchParams }: { searchParams: Pro
                   <th>Inquilino</th>
                   <th>Imobiliária</th>
                   <th>Início</th>
+                  <th>Próx. reajuste</th>
                   <th className="num">Aluguel</th>
                   <th className="num">Receitas</th>
                   <th className="num">Despesas</th>
@@ -120,6 +211,17 @@ export default async function LocacoesPage({ searchParams }: { searchParams: Pro
                     </td>
                     <td>{l.imobiliaria?.razaoSocial ?? "—"}</td>
                     <td>{dataBR(l.dataInicio)}</td>
+                    <td className="whitespace-nowrap">
+                      {l.ativo ? (
+                        (() => {
+                          const prox = proximoReajuste(l.dataInicio, l.reajustes[0]?.aPartirDe ?? null);
+                          const devido = mesKey(prox) <= mesAtual;
+                          return devido ? <Badge tone="amber">{mesBR(prox)}</Badge> : mesBR(prox);
+                        })()
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                     <td className="num">{brl(l.valorAluguel)}</td>
                     <td className="num">{brl(rec)}</td>
                     <td className="num">{brl(desp)}</td>

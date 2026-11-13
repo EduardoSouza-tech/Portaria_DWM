@@ -187,13 +187,37 @@ model Locacao {
   taxaAdministracaoPct Decimal?            @db.Decimal(6, 2)
   indiceReajuste       String?
   garantia             String?
+  /// multa por atraso (% sobre o valor) — sugerida na baixa
+  multaAtrasoPct       Decimal?            @db.Decimal(6, 2)
+  /// juros de mora (% ao mês, pró-rata dia) — sugeridos na baixa
+  jurosMesPct          Decimal?            @db.Decimal(6, 2)
   ativo                Boolean             @default(true)
   observacoes          String?
   createdAt            DateTime            @default(now())
   updatedAt            DateTime            @updatedAt
   lancamentos          LancamentoLocacao[]
+  reajustes            ReajusteLocacao[]
 
   @@index([obraId])
+}
+
+/// Histórico de reajustes do aluguel
+model ReajusteLocacao {
+  id                     Int      @id @default(autoincrement())
+  locacaoId              Int
+  locacao                Locacao  @relation(fields: [locacaoId], references: [id], onDelete: Cascade)
+  /// primeira competência com o novo valor
+  aPartirDe              DateTime @db.Date
+  indice                 String?
+  /// percentual aplicado (ex.: 4.5 = 4,5%)
+  percentual             Decimal? @db.Decimal(8, 4)
+  valorAnterior          Decimal  @db.Decimal(14, 2)
+  valorNovo              Decimal  @db.Decimal(14, 2)
+  lancamentosAtualizados Int      @default(0)
+  observacoes            String?
+  createdAt              DateTime @default(now())
+
+  @@index([locacaoId])
 }
 
 enum TipoLancamentoLocacao {
@@ -214,23 +238,30 @@ enum StatusLancamento {
 }
 
 model LancamentoLocacao {
-  id            Int                   @id @default(autoincrement())
-  locacaoId     Int
-  locacao       Locacao               @relation(fields: [locacaoId], references: [id], onDelete: Cascade)
+  id             Int                   @id @default(autoincrement())
+  locacaoId      Int
+  locacao        Locacao               @relation(fields: [locacaoId], references: [id], onDelete: Cascade)
   /// primeiro dia do mês de competência
-  competencia   DateTime              @db.Date
-  tipo          TipoLancamentoLocacao
-  descricao     String?
-  valor         Decimal               @db.Decimal(14, 2)
-  vencimento    DateTime?             @db.Date
-  dataPagamento DateTime?             @db.Date
-  status        StatusLancamento      @default(PENDENTE)
-  /// preparado para remessa/retorno bancário (CNAB)
-  nossoNumero   String?
-  createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
+  competencia    DateTime              @db.Date
+  tipo           TipoLancamentoLocacao
+  descricao      String?
+  valor          Decimal               @db.Decimal(14, 2)
+  vencimento     DateTime?             @db.Date
+  dataPagamento  DateTime?             @db.Date
+  status         StatusLancamento      @default(PENDENTE)
+  // dados da baixa (valor efetivo = valor + multa + juros − desconto)
+  multa          Decimal?              @db.Decimal(14, 2)
+  juros          Decimal?              @db.Decimal(14, 2)
+  desconto       Decimal?              @db.Decimal(14, 2)
+  formaPagamento String?
+  obsPagamento   String?
+  /// reservado para conciliação bancária futura (Open Finance / CNAB)
+  nossoNumero    String?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
 
   @@index([locacaoId, competencia])
+  @@index([status, vencimento])
 }
 
 // ============================================================
